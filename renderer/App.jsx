@@ -1,0 +1,151 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePersisted } from './lib/usePersisted.js';
+import { isLearning, KNOWN } from './lib/words.js';
+import { isDue } from './lib/srs.js';
+import ProfilePicker from './components/ProfilePicker.jsx';
+import Library from './components/Library.jsx';
+import Reader from './components/Reader.jsx';
+import Vocabulary from './components/Vocabulary.jsx';
+import Review from './components/Review.jsx';
+import Settings from './components/Settings.jsx';
+
+export const DEFAULT_SETTINGS = {
+  theme: 'system',
+  fontSize: 21,
+  wordsPerPage: 250,
+  autoSave: true,
+  deeplKey: '',
+  googleKey: '',
+};
+
+export default function App() {
+  const [profiles, setProfiles] = useState(null);
+  const [active, setActive] = useState(null);
+
+  useEffect(() => {
+    window.api.listProfiles().then(setProfiles);
+  }, []);
+
+  if (!profiles) return null;
+  if (!active) {
+    return (
+      <ProfilePicker
+        profiles={profiles}
+        onPick={setActive}
+        onChange={(list) => {
+          setProfiles(list);
+          window.api.saveProfiles(list);
+        }}
+      />
+    );
+  }
+  return <Workspace key={active.id} profile={active} onSwitch={() => setActive(null)} />;
+}
+
+const NAV = [
+  { id: 'library', label: 'Library', icon: '▤' },
+  { id: 'reader', label: 'Reader', icon: '❦' },
+  { id: 'vocabulary', label: 'Vocabulary', icon: '★' },
+  { id: 'review', label: 'Review', icon: '↻' },
+  { id: 'settings', label: 'Settings', icon: '⚙' },
+];
+
+function Workspace({ profile, onSwitch }) {
+  const [texts, setTexts] = usePersisted(profile.id, 'texts', []);
+  const [words, setWords] = usePersisted(profile.id, 'words', {});
+  const [storedSettings, setSettings] = usePersisted(profile.id, 'settings', DEFAULT_SETTINGS);
+  const [view, setView] = useState('library');
+  const [openTextId, setOpenTextId] = useState(null);
+
+  const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...storedSettings }), [storedSettings]);
+
+  useEffect(() => {
+    const dark =
+      settings.theme === 'dark' ||
+      (settings.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  }, [settings.theme]);
+
+  const updateText = useCallback(
+    (id, patch) => setTexts((list) => list.map((t) => (t.id === id ? { ...t, ...patch } : t))),
+    [setTexts]
+  );
+
+  const stats = useMemo(() => {
+    const all = Object.values(words || {});
+    return {
+      known: all.filter((w) => w.status === KNOWN && !w.isPhrase).length,
+      learning: all.filter(isLearning).length,
+      due: all.filter((w) => isLearning(w) && isDue(w)).length,
+    };
+  }, [words]);
+
+  if (!texts || !words || !storedSettings) return <div className="loading">Loading…</div>;
+
+  const openText = texts.find((t) => t.id === openTextId);
+  const open = (id) => {
+    setOpenTextId(id);
+    setView('reader');
+  };
+
+  return (
+    <div className="shell">
+      <aside className="sidebar">
+        <div className="brand">
+          Lesen<span>.</span>
+        </div>
+        <nav>
+          {NAV.map((n) => (
+            <button
+              key={n.id}
+              className={`nav-item ${view === n.id ? 'active' : ''}`}
+              onClick={() => setView(n.id)}
+              disabled={n.id === 'reader' && !openText}
+            >
+              <span className="nav-icon">{n.icon}</span>
+              {n.label}
+              {n.id === 'review' && stats.due > 0 && <span className="badge">{stats.due}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="side-stats">
+          <div>
+            <b>{stats.known}</b> known words
+          </div>
+          <div>
+            <b>{stats.learning}</b> learning
+          </div>
+        </div>
+        <button className="profile-chip" onClick={onSwitch} title="Switch profile">
+          <span className="avatar" style={{ background: profile.color }}>
+            {profile.name[0]?.toUpperCase()}
+          </span>
+          <span className="profile-name">{profile.name}</span>
+          <span className="muted">switch</span>
+        </button>
+      </aside>
+
+      <main className="main">
+        {view === 'library' && (
+          <Library texts={texts} setTexts={setTexts} words={words} onOpen={open} />
+        )}
+        {view === 'reader' && openText && (
+          <Reader
+            key={openText.id}
+            text={openText}
+            words={words}
+            setWords={setWords}
+            settings={settings}
+            onUpdateText={(patch) => updateText(openText.id, patch)}
+            onBack={() => setView('library')}
+          />
+        )}
+        {view === 'vocabulary' && <Vocabulary words={words} setWords={setWords} texts={texts} onOpen={open} />}
+        {view === 'review' && <Review words={words} setWords={setWords} />}
+        {view === 'settings' && (
+          <Settings settings={settings} setSettings={setSettings} profile={profile} />
+        )}
+      </main>
+    </div>
+  );
+}

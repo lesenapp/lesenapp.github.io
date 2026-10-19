@@ -1,0 +1,21 @@
+{
+  "name": "lesen",
+  "productName": "Lesen",
+  "version": "0.1.0",
+  "description": "Desktop reader for learning German through your own texts",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "build": "vite build",
+    "start": "vite build && electron ."
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^44.9.0",
+    "vite": "^8.3.4"
+  }
+}
