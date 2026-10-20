@@ -1,22 +1,10 @@
-// Word status, LingQ-style: absent = new (blue), 1–4 = learning (yellow, fading),
-// 5 = known (no highlight), -1 = ignored (names, foreign words, …).
-export const NEW = 0;
-export const KNOWN = 5;
-export const IGNORED = -1;
-
-export const STATUS_LABELS = { 0: 'New', 1: 'Level 1', 2: 'Level 2', 3: 'Level 3', 4: 'Level 4', 5: 'Known', [-1]: 'Ignored' };
-
-export const statusOf = (words, key) => words[key]?.status ?? NEW;
-
-export const isLearning = (w) => w.status >= 1 && w.status <= 4;
+// Saved words: the ones you looked up or saved while reading. Learning progress lives in Anki,
+// so a word here is simply saved (with its meaning) or not.
 
 export function upsert(words, key, patch) {
   const prev = words[key];
   const now = Date.now();
-  return {
-    ...words,
-    [key]: { key, status: 1, created: now, ...prev, ...patch, updated: now },
-  };
+  return { ...words, [key]: { key, created: now, ...prev, ...patch, updated: now } };
 }
 
 export function remove(words, key) {
@@ -24,6 +12,9 @@ export function remove(words, key) {
   delete next[key];
   return next;
 }
+
+// Older versions stored "known" (5) and "ignored" (-1) words; those were never saved words.
+export const isLegacyUnsaved = (w) => w.status === 5 || w.status === -1;
 
 export const ARTICLES = { m: 'der', f: 'die', n: 'das' };
 

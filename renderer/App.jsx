@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePersisted } from './lib/usePersisted.js';
 import { useMeaningFiller } from './lib/useMeaningFiller.js';
-import { isLearning, KNOWN } from './lib/words.js';
+import { isLegacyUnsaved } from './lib/words.js';
 import { pendingForAnki } from './lib/anki.js';
 import ProfilePicker from './components/ProfilePicker.jsx';
 import Library from './components/Library.jsx';
@@ -46,7 +46,7 @@ export default function App() {
 const NAV = [
   { id: 'library', label: 'Library', icon: '▤' },
   { id: 'reader', label: 'Reader', icon: '❦' },
-  { id: 'vocabulary', label: 'Vocabulary', icon: '★' },
+  { id: 'vocabulary', label: 'My words', icon: '★' },
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
@@ -59,6 +59,13 @@ function Workspace({ profile, onSwitch }) {
 
   const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...storedSettings }), [storedSettings]);
   useMeaningFiller(words, setWords, settings);
+
+  // Drop the "known"/"ignored" entries older versions created; they were never saved words.
+  useEffect(() => {
+    if (words && Object.values(words).some(isLegacyUnsaved)) {
+      setWords((ws) => Object.fromEntries(Object.entries(ws).filter(([, w]) => !isLegacyUnsaved(w))));
+    }
+  }, [words, setWords]);
 
   useEffect(() => {
     const dark =
@@ -73,10 +80,8 @@ function Workspace({ profile, onSwitch }) {
   );
 
   const stats = useMemo(() => {
-    const all = Object.values(words || {});
     return {
-      known: all.filter((w) => w.status === KNOWN && !w.isPhrase).length,
-      learning: all.filter(isLearning).length,
+      saved: Object.keys(words || {}).length,
       forAnki: words ? pendingForAnki(words).length : 0,
     };
   }, [words]);
@@ -115,10 +120,7 @@ function Workspace({ profile, onSwitch }) {
         </nav>
         <div className="side-stats">
           <div>
-            <b>{stats.known}</b> known words
-          </div>
-          <div>
-            <b>{stats.learning}</b> learning
+            <b>{stats.saved}</b> saved words
           </div>
         </div>
         <button className="profile-chip" onClick={onSwitch} title="Switch profile">

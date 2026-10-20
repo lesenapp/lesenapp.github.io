@@ -516,20 +516,6 @@ kbd {
   flex: 1;
 }
 
-.meter {
-  height: 5px;
-  border-radius: 3px;
-  background: var(--surface-2);
-  overflow: hidden;
-}
-
-.meter div {
-  height: 100%;
-  background: var(--known);
-  border-radius: 3px;
-  transition: width 0.4s;
-}
-
 .card-foot {
   display: flex;
   justify-content: space-between;
@@ -546,15 +532,6 @@ kbd {
 
 .text-card:hover .card-actions {
   opacity: 1;
-}
-
-.new-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--new-solid);
-  vertical-align: 0;
 }
 
 .modal-backdrop {
@@ -652,26 +629,8 @@ kbd {
   box-shadow: 0 0 0 1.5px var(--accent);
 }
 
-.w.st0 {
-  background: var(--new);
-}
-
-.w.st1 {
+.w.saved {
   background: var(--lv1);
-}
-
-.w.st2 {
-  background: var(--lv2);
-}
-
-.w.st3 {
-  background: var(--lv3);
-}
-
-.w.st4 {
-  background: var(--lv4);
-  text-decoration: underline dotted rgba(200, 150, 20, 0.6);
-  text-underline-offset: 4px;
 }
 
 .w.fav {
@@ -794,57 +753,23 @@ kbd {
   margin-top: -4px;
 }
 
-.status-row {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.status-btn {
+.save-btn {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 8px;
-  padding: 5px 10px;
-  min-width: 34px;
+  border-radius: 10px;
+  padding: 9px 12px;
   font-weight: 600;
-  font-size: 13px;
-  transition: all 0.15s;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-.status-btn:hover {
-  border-color: var(--muted);
+.save-btn:hover {
+  border-color: var(--accent);
 }
 
-.status-btn.on.sb1 {
-  background: var(--lv1);
-}
-
-.status-btn.on.sb2 {
+.save-btn.on {
   background: var(--lv2);
-}
-
-.status-btn.on.sb3 {
-  background: var(--lv3);
-}
-
-.status-btn.on.sb4 {
-  background: var(--lv4);
-}
-
-.status-btn.on {
   border-color: #d4a017;
-}
-
-.status-btn.on.sb5 {
-  background: var(--known);
-  border-color: var(--known);
-  color: #fff;
-}
-
-.status-btn.on.sb-1 {
-  background: var(--muted);
-  border-color: var(--muted);
-  color: var(--surface);
 }
 
 .field {
@@ -1063,7 +988,7 @@ kbd {
 
 .vrow {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1.3fr) minmax(0, 1fr) 104px 56px 28px;
+  grid-template-columns: 32px minmax(0, 1.2fr) minmax(0, 1fr) 56px 28px;
   gap: 12px;
   align-items: center;
   padding: 10px 12px;
@@ -1121,11 +1046,6 @@ kbd {
 
 .vmeaning:placeholder-shown {
   border-color: var(--border);
-}
-
-.vstatus {
-  padding: 5px 8px;
-  font-size: 13px;
 }
 
 .vanki {
@@ -1408,9 +1328,9 @@ body {
   .vrow {
     grid-template-columns: 28px minmax(0, 1fr) auto;
     grid-template-areas:
-      'star main status'
+      'star main del'
       'star meaning meaning'
-      'star anki del';
+      'star anki anki';
     row-gap: 6px;
   }
 
@@ -1424,10 +1344,6 @@ body {
   .vmeaning {
     grid-area: meaning;
     border-color: var(--border);
-  }
-  .vstatus {
-    grid-area: status;
-    width: 96px;
   }
   .vanki {
     grid-area: anki;

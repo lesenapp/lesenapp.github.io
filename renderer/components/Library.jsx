@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
-import { countWords, uniqueWordKeys } from '../lib/text.js';
-import { KNOWN, IGNORED } from '../lib/words.js';
+import { countWords } from '../lib/text.js';
 
 const SAMPLE = {
   title: 'Ein Morgen in Berlin',
@@ -71,29 +70,16 @@ export default function Library({ texts, setTexts, words, onOpen }) {
 }
 
 function TextCard({ text, words, onOpen, onEdit, onDelete }) {
-  const info = useMemo(() => {
-    const keys = uniqueWordKeys(text.content);
-    let known = 0;
-    let fresh = 0;
-    for (const k of keys) {
-      const s = words[k]?.status;
-      if (s === KNOWN || s === IGNORED) known++;
-      else if (s === undefined) fresh++;
-    }
-    return { total: countWords(text.content), unique: keys.size, known, fresh };
-  }, [text.content, words]);
-  const pct = info.unique ? Math.round((info.known / info.unique) * 100) : 0;
+  const total = useMemo(() => countWords(text.content), [text.content]);
+  const saved = useMemo(() => Object.values(words).filter((w) => w.textId === text.id).length, [words, text.id]);
 
   return (
     <div className="card text-card" onClick={onOpen}>
       <h3>{text.title}</h3>
       <p className="excerpt">{text.content.slice(0, 160)}…</p>
-      <div className="meter" title={`${pct}% of unique words known`}>
-        <div style={{ width: `${pct}%` }} />
-      </div>
       <div className="card-foot">
         <span className="muted">
-          {info.total.toLocaleString()} words · <span className="new-dot" /> {info.fresh} new · {pct}% known
+          {total.toLocaleString()} words{saved > 0 && ` · ${saved} saved`}
         </span>
         <span className="card-actions" onClick={(e) => e.stopPropagation()}>
           <button className="icon-btn" onClick={onEdit} title="Edit">

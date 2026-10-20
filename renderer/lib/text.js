@@ -55,7 +55,3 @@ export function sentenceAround(text, start, end) {
 export function countWords(content) {
   return (content.match(WORD_RE) || []).filter((w) => !NUMBER_RE.test(w)).length;
 }
-
-export function uniqueWordKeys(content) {
-  return new Set((content.match(WORD_RE) || []).filter((w) => !NUMBER_RE.test(w)).map(wordKey));
-}

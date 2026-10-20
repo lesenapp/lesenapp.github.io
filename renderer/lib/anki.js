@@ -3,7 +3,7 @@
 // changed ones — never duplicates. On a computer with Anki + AnkiConnect the package is
 // imported directly and AnkiWeb sync is triggered; on phones it goes to Anki via the share sheet.
 import { strToU8, zipSync } from 'fflate';
-import { headword, isLearning } from './words.js';
+import { headword } from './words.js';
 
 const MODEL_ID = 1729411200000; // fixed: every export targets the same note type
 const MODEL_NAME = 'Lesen (German ↔ English)';
@@ -71,9 +71,9 @@ export function ankiFields(w) {
 
 const signature = (w) => ankiFields(w).join('\u001f');
 
-// Learning words with a meaning that Anki does not have yet (or has an older version of).
+// Saved words with a meaning that Anki does not have yet (or has an older version of).
 export function pendingForAnki(words) {
-  return Object.values(words).filter((w) => isLearning(w) && w.translation?.trim() && w.ankiSig !== signature(w));
+  return Object.values(words).filter((w) => w.translation?.trim() && w.ankiSig !== signature(w));
 }
 
 // Stored on a word once a given version of it has been sent.
@@ -234,9 +234,20 @@ async function ankiConnect(action, params = {}) {
   return res?.result;
 }
 
-export async function ankiConnectAvailable() {
+// 'ready' (Anki open, this app allowed), 'forbidden' (Anki open, this site not allowed yet)
+// or 'offline' (Anki closed / AnkiConnect missing / phone).
+export async function ankiConnectStatus() {
   try {
-    return (await ankiConnect('version')) >= 6;
+    return (await ankiConnect('version')) >= 6 ? 'ready' : 'offline';
+  } catch (e) {
+    return e.message === 'forbidden' ? 'forbidden' : 'offline';
+  }
+}
+
+// Shows AnkiConnect's "allow this website?" dialog inside Anki; resolves once answered.
+export async function requestAnkiPermission() {
+  try {
+    return (await ankiConnect('requestPermission'))?.permission === 'granted';
   } catch {
     return false;
   }
@@ -273,9 +284,14 @@ export async function deliverPackage(bytes) {
     return 'opened';
   }
   const file = new File([bytes], name, { type: 'application/octet-stream' });
+  // iPhone shares the file straight to Anki; browsers that refuse .apkg files fall back to a download.
   if (navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file] });
-    return 'shared';
+    try {
+      await navigator.share({ files: [file] });
+      return 'shared';
+    } catch (e) {
+      if (e.name === 'AbortError') throw e;
+    }
   }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(file);

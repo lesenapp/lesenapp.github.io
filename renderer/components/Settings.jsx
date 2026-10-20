@@ -60,7 +60,7 @@ export default function Settings({ settings, setSettings, profile }) {
         <div className="setting">
           <div>
             <b>Save words when I look them up</b>
-            <p className="muted small">Like Readlang: a clicked word becomes a learning word (status 1) with its first meaning.</p>
+            <p className="muted small">A word you click while reading is saved to My words with its first meaning.</p>
           </div>
           <input type="checkbox" checked={settings.autoSave} onChange={(e) => set({ autoSave: e.target.checked })} />
         </div>
@@ -69,7 +69,7 @@ export default function Settings({ settings, setSettings, profile }) {
           <div>
             <b>Anki deck</b>
             <p className="muted small">
-              “Send to Anki” adds your learning words to this deck as two-way cards (German → English and English →
+              “Send to Anki” adds your saved words to this deck as two-way cards (German → English and English →
               German); sending again only adds new words and updates changed ones. Turn on FSRS once in Anki: Deck
               options → FSRS.{' '}
               {window.api.platform === 'web'

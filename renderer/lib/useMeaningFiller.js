@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { firstGloss, isLearning } from './words.js';
+import { firstGloss } from './words.js';
 
 // Quietly completes saved words in the background, one lookup at a time: a missing meaning,
 // and the base form + gender (for the article) of words saved before they were looked up.
@@ -12,7 +12,6 @@ export function useMeaningFiller(words, setWords, settings) {
     if (!words || busy.current) return;
     const todo = Object.values(words).find(
       (w) =>
-        (isLearning(w) || w.favorite) &&
         !tried.current.has(w.key) &&
         (!w.translation?.trim() || (!w.isPhrase && !w.looked))
     );

@@ -1,15 +1,6 @@
 import { useEffect, useState } from 'react';
-import { IGNORED, KNOWN, NEW, articleOf, firstGloss } from '../lib/words.js';
+import { articleOf, firstGloss } from '../lib/words.js';
 import { speak } from '../lib/speech.js';
-
-const STATUS_BUTTONS = [
-  { s: 1, label: '1' },
-  { s: 2, label: '2' },
-  { s: 3, label: '3' },
-  { s: 4, label: '4' },
-  { s: KNOWN, label: '✓ Known' },
-  { s: IGNORED, label: 'Ignore' },
-];
 
 const enc = encodeURIComponent;
 const LINKS = [
@@ -30,7 +21,6 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
   const [quick, setQuick] = useState(null);
   const [tab, setTab] = useState('dict');
   const isWord = sel.kind === 'word';
-  const status = record?.status ?? NEW;
   const keys = { googleKey: settings.googleKey, deeplKey: settings.deeplKey };
 
   useEffect(() => {
@@ -45,8 +35,16 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWord, sel.text, settings.googleKey, settings.deeplKey]);
 
-  // Readlang-style: looking a word up in a text saves it as a learning word. A word that is
-  // already saved gets its missing meaning, base form and gender filled in.
+  // What a word is saved with: its first meaning plus base form and gender (for the article).
+  const saveFields = () =>
+    isWord
+      ? data?.found
+        ? { translation: firstGloss(data), lemma: data.lemma, gender: data.gender, looked: true }
+        : {}
+      : { translation: data?.text || '' };
+
+  // Readlang-style: looking a word up in a text saves it. A word that is already saved gets
+  // its missing meaning, base form and gender filled in.
   useEffect(() => {
     if (!data || data.error) return;
     if (!isWord) {
@@ -56,7 +54,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
     if (!data.found) return;
     const details = { lemma: data.lemma, gender: data.gender, looked: true };
     if (!record) {
-      if (settings.autoSave && sel.context) onPatch({ status: 1, translation: firstGloss(data), ...details });
+      if (settings.autoSave && sel.context) onPatch(saveFields());
       return;
     }
     if (!record.translation?.trim() || !record.looked) {
@@ -125,17 +123,13 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         </div>
       )}
 
-      <div className="status-row">
-        {STATUS_BUTTONS.map((b) => (
-          <button
-            key={b.s}
-            className={`status-btn sb${b.s} ${status === b.s ? 'on' : ''}`}
-            onClick={() => onPatch({ status: b.s })}
-          >
-            {b.label}
-          </button>
-        ))}
-      </div>
+      <button
+        className={`save-btn ${record ? 'on' : ''}`}
+        onClick={() => onPatch(record ? null : saveFields())}
+        title={record ? 'Remove from my words' : 'Save to my words (sent to Anki)'}
+      >
+        {record ? '✓ Saved to my words' : '+ Save to my words'}
+      </button>
 
       <label className="field">
         <span>My meaning</span>
@@ -155,11 +149,6 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
           onChange={(e) => onPatch({ note: e.target.value })}
         />
       </label>
-      {record && (
-        <button className="link danger small" onClick={() => onPatch(null)}>
-          Remove from my words
-        </button>
-      )}
 
       <div className="tabs">
         {[
@@ -280,11 +269,6 @@ function PhraseTranslation({ data, record, onPatch, text }) {
           <span>
             <span className="translation">{data.text}</span> <span className="muted small">· {data.provider}</span>
           </span>
-          {!record?.translation && (
-            <button className="btn primary" onClick={() => onPatch({ status: 1, translation: data.text })}>
-              Save phrase
-            </button>
-          )}
         </div>
       )}
       <GoogleTranslate text={text} />

@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { paginate, sentenceAround, tokenize, wordKey } from '../lib/text.js';
-import { IGNORED, KNOWN, NEW, statusOf, upsert, remove } from '../lib/words.js';
+import { upsert, remove } from '../lib/words.js';
 import WordPanel from './WordPanel.jsx';
-
-const STATUS_KEYS = { 1: 1, 2: 2, 3: 3, 4: 4, k: KNOWN, x: IGNORED };
 
 export default function Reader({ text, words, setWords, settings, onUpdateText, onBack }) {
   const paragraphs = useMemo(() => tokenize(text.content), [text.content]);
@@ -90,20 +88,6 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
 
   const navigate = (word) => setSel({ kind: 'word', text: word, key: wordKey(word), context: '' });
 
-  const markPageKnown = () => {
-    setWords((ws) => {
-      let next = ws;
-      for (const pi of pages[page]) {
-        for (const tok of paragraphs[pi].tokens) {
-          if (tok.type === 'word' && statusOf(next, tok.key) === NEW) {
-            next = upsert(next, tok.key, { word: tok.text, status: KNOWN });
-          }
-        }
-      }
-      return next;
-    });
-  };
-
   const goto = (n) => {
     setSel(null);
     setPage(Math.max(0, Math.min(pages.length - 1, n)));
@@ -113,7 +97,6 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
     const onKey = (e) => {
       if (e.target.closest('input, textarea, select') || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Escape') return setSel(null);
-      if (sel && e.key in STATUS_KEYS) return patchSelected({ status: STATUS_KEYS[e.key] });
       if (sel && e.key === 'f') return patchSelected({ favorite: !record?.favorite });
       if (e.key === 'ArrowRight') goto(page + 1);
       if (e.key === 'ArrowLeft') goto(page - 1);
@@ -123,11 +106,6 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
   });
 
   const onPage = pages[page] || [];
-  const newOnPage = new Set(
-    onPage.flatMap((pi) =>
-      paragraphs[pi].tokens.filter((t) => t.type === 'word' && statusOf(words, t.key) === NEW).map((t) => t.key)
-    )
-  ).size;
   const isLast = page >= pages.length - 1;
 
   return (
@@ -139,7 +117,7 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
           </button>
           <div className="reader-title">{text.title}</div>
           <div className="muted small">
-            Page {page + 1} / {pages.length} · <span className="new-dot" /> {newOnPage} new
+            Page {page + 1} / {pages.length}
           </div>
         </header>
 
@@ -159,7 +137,7 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
                     <span
                       key={ti}
                       data-t={`${pi}:${ti}`}
-                      className={`w st${statusOf(words, tok.key)}${words[tok.key]?.favorite ? ' fav' : ''}${
+                      className={`w${words[tok.key] ? ' saved' : ''}${words[tok.key]?.favorite ? ' fav' : ''}${
                         sel?.pos === `${pi}:${ti}` ? ' sel' : ''
                       }`}
                     >
@@ -175,24 +153,12 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
             <button className="btn" onClick={() => goto(page - 1)} disabled={page === 0}>
               ← Previous
             </button>
-            <button
-              className="btn primary"
-              onClick={() => {
-                markPageKnown();
-                if (!isLast) goto(page + 1);
-              }}
-              disabled={newOnPage === 0 && isLast}
-              title="Every blue word left on this page becomes Known"
-            >
-              {isLast ? `Finish — mark ${newOnPage} new as known` : `Mark ${newOnPage} new as known & next →`}
-            </button>
-            <button className="btn" onClick={() => goto(page + 1)} disabled={isLast}>
+            <button className="btn primary" onClick={() => goto(page + 1)} disabled={isLast}>
               Next →
             </button>
           </footer>
           <p className="hint muted small">
-            Click a word to look it up · drag across words for a phrase · keys: 1–4 status, K known, X ignore, F
-            favourite, ←/→ pages
+            Click a word to look it up · drag across words for a phrase · F favourite · ←/→ pages
           </p>
         </div>
       </div>

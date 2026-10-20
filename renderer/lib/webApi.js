@@ -75,13 +75,15 @@ export function installWebApi() {
     wikipedia: (query, lang) => dictionary.wikipedia(query, lang),
     translate: (text, keys) => dictionary.translate(text, { googleKey: keys?.googleKey }),
     // AnkiConnect (Anki desktop add-on) listens on this computer only; phones never reach it.
+    // It answers 403 until this site is allowed (see requestAnkiPermission in lib/anki.js).
     ankiConnect: async (body) => {
       try {
         const res = await fetch('http://127.0.0.1:8765', {
           method: 'POST',
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(body.action === 'version' ? 1500 : 60_000),
+          signal: AbortSignal.timeout(body.action === 'version' ? 1500 : 120_000),
         });
+        if (res.status === 403) return { result: null, error: 'forbidden' };
         return await res.json();
       } catch {
         return { result: null, error: 'Anki is not running or AnkiConnect is not installed' };
