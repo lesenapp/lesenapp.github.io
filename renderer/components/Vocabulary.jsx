@@ -204,7 +204,7 @@ function AnkiBar({ words, setWords, deck }) {
         text:
           how === 'opened'
             ? `${count(list.length)} — Anki is adding them to “${deck}”.`
-            : `Anki isn't open, so ${count(list.length)} were downloaded as a file. Open it to add them — or start Anki and press Send next time.`,
+            : `Couldn't reach Anki, so ${count(list.length)} were downloaded as a file — open it to add them. For one-click sending, keep Anki open and allow “Local network access” for this site (lock icon in the address bar), or use the Lesen desktop app.`,
       });
     } catch (e) {
       if (e.name !== 'AbortError') setResult({ ok: false, text: e.message });
