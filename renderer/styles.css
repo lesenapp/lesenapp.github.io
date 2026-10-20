@@ -1015,160 +1015,136 @@ kbd {
 /* ---------- vocabulary ---------- */
 
 .search {
-  width: 220px;
+  width: 260px;
+}
+
+.anki-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.anki-logo {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #4c8ef7, #2563eb);
+  color: #fff;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.anki-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.anki-title {
+  font-weight: 600;
+}
+
+.anki-live,
+.anki-ok {
+  color: var(--known);
 }
 
 .vocab {
   display: grid;
-  gap: 6px;
-}
-
-.vocab-row {
-  display: grid;
-  grid-template-columns: 32px 170px 220px 1fr 110px 32px;
-  gap: 10px;
-  align-items: center;
-  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 6px 10px;
-}
-
-.vocab-word {
+  border-radius: var(--radius);
+  background: var(--surface);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.vocab-context {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--reading-font);
+.vrow {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1.3fr) minmax(0, 1fr) 104px 56px 28px;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
 }
 
-/* ---------- review ---------- */
-
-.review-start {
-  max-width: 420px;
-  margin: 30px auto;
-  padding: 36px;
-  text-align: center;
+.vrow:last-child {
+  border-bottom: 0;
 }
 
-.big-number {
-  font-size: 64px;
-  font-weight: 700;
-  font-family: var(--reading-font);
-  color: var(--accent);
-  line-height: 1;
+.vrow:hover {
+  background: var(--surface-2);
 }
 
-.review-progress {
-  text-align: center;
-  margin-bottom: 10px;
+.vmain {
+  min-width: 0;
 }
 
-.flashcard {
-  max-width: 640px;
-  margin: 20px auto;
-  padding: 40px 40px 30px;
-  text-align: center;
-  animation: rise 0.2s ease-out;
-}
-
-.fc-word {
-  font-family: var(--reading-font);
-  font-size: 38px;
-  font-weight: 700;
+.vword {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-}
-
-.card-context {
+  align-items: baseline;
+  gap: 7px;
   font-family: var(--reading-font);
-  font-size: 19px;
-  line-height: 1.6;
-  margin: 18px 0 4px;
+  font-size: 17px;
 }
 
-.card-context mark {
-  background: var(--lv1);
-  color: inherit;
-  border-radius: 4px;
-  padding: 0 2px;
-}
-
-.reveal {
-  margin-top: 28px;
-  padding: 11px 26px;
-}
-
-.fc-answer {
-  margin-top: 22px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border);
-  animation: fade 0.2s;
-}
-
-.fc-meaning {
-  font-size: 22px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.fc-note {
-  margin-top: 8px;
-  color: var(--muted);
-  white-space: pre-wrap;
-}
-
-.grades {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-top: 24px;
-}
-
-.grade {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 10px;
-  padding: 10px 6px;
-  display: grid;
-  gap: 2px;
-  transition: transform 0.1s, border-color 0.15s;
-}
-
-.grade span {
+.vword .article {
+  font-family: 'Segoe UI', system-ui, sans-serif;
   font-size: 12px;
+  padding: 1px 6px;
+}
+
+.vctx {
+  margin-top: 2px;
   color: var(--muted);
+  font-family: var(--reading-font);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.grade kbd {
-  justify-self: center;
+.vmeaning {
+  padding: 6px 10px;
+  border-color: transparent;
+  background: transparent;
 }
 
-.grade:hover {
-  transform: translateY(-1px);
+.vrow:hover .vmeaning,
+.vmeaning:focus {
+  border-color: var(--border);
+  background: var(--surface);
 }
 
-.grade.again:hover {
-  border-color: var(--danger);
+.vmeaning:placeholder-shown {
+  border-color: var(--border);
 }
 
-.grade.hard:hover {
-  border-color: #d97706;
+.vstatus {
+  padding: 5px 8px;
+  font-size: 13px;
 }
 
-.grade.good:hover {
-  border-color: var(--known);
+.vanki {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--known);
+  white-space: nowrap;
 }
 
-.grade.easy:hover {
-  border-color: #2563eb;
+.vdel {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.vrow:hover .vdel {
+  opacity: 1;
 }
 
 /* ---------- settings ---------- */
@@ -1421,53 +1397,45 @@ body {
   }
 
   /* Vocabulary rows stack. */
-  .vocab-row {
-    grid-template-columns: 32px 1fr auto 32px;
+  .anki-bar {
+    flex-wrap: wrap;
+  }
+
+  .anki-bar .btn {
+    width: 100%;
+  }
+
+  .vrow {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
     grid-template-areas:
-      'star word status del'
-      'star meaning meaning meaning';
-    row-gap: 4px;
+      'star main status'
+      'star meaning meaning'
+      'star anki del';
+    row-gap: 6px;
   }
 
-  .vocab-row > :nth-child(1) {
+  .vrow > .star {
     grid-area: star;
+    align-self: start;
   }
-  .vocab-row > :nth-child(2) {
-    grid-area: word;
+  .vmain {
+    grid-area: main;
   }
-  .vocab-row > :nth-child(3) {
+  .vmeaning {
     grid-area: meaning;
+    border-color: var(--border);
   }
-  .vocab-row > :nth-child(4) {
-    display: none;
-  }
-  .vocab-row > :nth-child(5) {
+  .vstatus {
     grid-area: status;
-    width: 100px;
+    width: 96px;
   }
-  .vocab-row > :nth-child(6) {
+  .vanki {
+    grid-area: anki;
+  }
+  .vdel {
     grid-area: del;
-  }
-
-  .flashcard {
-    padding: 28px 18px 20px;
-  }
-
-  .fc-word {
-    font-size: 30px;
-  }
-
-  .card-context {
-    font-size: 17px;
-  }
-
-  .grades {
-    gap: 6px;
-  }
-
-  .grade kbd,
-  .reveal kbd {
-    display: none;
+    opacity: 1;
+    justify-self: end;
   }
 
   .setting {

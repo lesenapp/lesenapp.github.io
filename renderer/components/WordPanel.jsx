@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ARTICLES, IGNORED, KNOWN, NEW, firstGloss } from '../lib/words.js';
+import { IGNORED, KNOWN, NEW, articleOf, firstGloss } from '../lib/words.js';
 import { speak } from '../lib/speech.js';
 
 const STATUS_BUTTONS = [
@@ -45,23 +45,35 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isWord, sel.text, settings.googleKey, settings.deeplKey]);
 
-  // Readlang-style: looking a word up in a text saves it as a learning word.
+  // Readlang-style: looking a word up in a text saves it as a learning word. A word that is
+  // already saved gets its missing meaning, base form and gender filled in.
   useEffect(() => {
-    if (!data || record || !settings.autoSave || !sel.context) return;
-    if (isWord && data.found) {
-      onPatch({ status: 1, translation: firstGloss(data), lemma: data.lemma, gender: data.gender });
+    if (!data || data.error) return;
+    if (!isWord) {
+      if (record && !record.translation?.trim() && data.text) onPatch({ translation: data.text });
+      return;
+    }
+    if (!data.found) return;
+    const details = { lemma: data.lemma, gender: data.gender, looked: true };
+    if (!record) {
+      if (settings.autoSave && sel.context) onPatch({ status: 1, translation: firstGloss(data), ...details });
+      return;
+    }
+    if (!record.translation?.trim() || !record.looked) {
+      onPatch({ ...details, ...(record.translation?.trim() ? {} : { translation: firstGloss(data) }) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
   const lookupWord = isWord ? data?.lemma || sel.text : sel.text;
-  const article = isWord && data?.gender && data.lemma && /^\p{Lu}/u.test(data.lemma) ? ARTICLES[data.gender] : null;
+  const article = isWord && data ? articleOf(data) : null;
+  const isBaseForm = !data?.lemma || data.lemma.toLowerCase() === sel.text.toLowerCase();
 
   return (
     <aside className="panel">
       <div className="panel-head">
         <div className="panel-word">
-          {article && <span className={`article g-${data.gender}`}>{article}</span>}
+          {article && isBaseForm && <span className={`article g-${data.gender}`}>{article}</span>}
           <span className="word">{sel.text}</span>
         </div>
         <div className="row tight">
@@ -88,9 +100,10 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         </div>
       </div>
 
-      {isWord && data?.lemma && data.lemma.toLowerCase() !== sel.text.toLowerCase() && (
+      {isWord && !isBaseForm && (
         <div className="lemma">
           Base form:{' '}
+          {article && <span className={`article g-${data.gender}`}>{article}</span>}{' '}
           <button className="link" onClick={() => onNavigate(data.lemma)}>
             {data.lemma}
           </button>

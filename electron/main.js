@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, net, shell } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const store = require('./store');
 const dictionary = require('./dictionary');
@@ -36,6 +37,22 @@ ipcMain.handle('data:save', (_e, profileId, name, value) => store.save(profileId
 ipcMain.handle('dict:lookup', (_e, word) => dictionary.lookup(word));
 ipcMain.handle('dict:wikipedia', (_e, query, lang) => dictionary.wikipedia(query, lang));
 ipcMain.handle('dict:translate', (_e, text, keys) => dictionary.translate(text, keys));
+// Anki: AnkiConnect add-on on localhost, or open an .apkg with the installed Anki.
+ipcMain.handle('anki:connect', async (_e, body) => {
+  try {
+    const res = await net.fetch('http://127.0.0.1:8765', { method: 'POST', body: JSON.stringify(body) });
+    return await res.json();
+  } catch {
+    return { result: null, error: 'Anki is not running or AnkiConnect is not installed' };
+  }
+});
+ipcMain.handle('anki:open-package', async (_e, bytes, name) => {
+  const file = path.join(app.getPath('temp'), path.basename(String(name)).replace(/[^\w .-]/g, '_'));
+  fs.writeFileSync(file, Buffer.from(bytes));
+  const error = await shell.openPath(file);
+  if (error) throw new Error(error);
+});
+
 ipcMain.handle('open-external', (_e, url) => {
   if (/^https:\/\//.test(url)) shell.openExternal(url);
 });

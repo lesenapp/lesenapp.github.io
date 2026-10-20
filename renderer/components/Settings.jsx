@@ -67,6 +67,26 @@ export default function Settings({ settings, setSettings, profile }) {
 
         <div className="setting column">
           <div>
+            <b>Anki deck</b>
+            <p className="muted small">
+              “Send to Anki” adds your learning words to this deck as two-way cards (German → English and English →
+              German); sending again only adds new words and updates changed ones. Turn on FSRS once in Anki: Deck
+              options → FSRS.{' '}
+              {window.api.platform === 'web'
+                ? 'On a computer, keep Anki open with the AnkiConnect add-on for one-click import; on phones the deck file opens in the Anki app.'
+                : 'With the AnkiConnect add-on and Anki open, cards are imported directly and synced to AnkiWeb.'}
+            </p>
+          </div>
+          <input
+            className="input"
+            value={settings.ankiDeck}
+            placeholder="Lesen"
+            onChange={(e) => set({ ankiDeck: e.target.value.replace(/["]/g, '') })}
+          />
+        </div>
+
+        <div className="setting column">
+          <div>
             <b>Google Translate API key (optional)</b>
             <p className="muted small">
               Google Cloud Translation API key. When set, phrases are translated with Google and every clicked word also

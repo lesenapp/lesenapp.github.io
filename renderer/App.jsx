@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePersisted } from './lib/usePersisted.js';
+import { useMeaningFiller } from './lib/useMeaningFiller.js';
 import { isLearning, KNOWN } from './lib/words.js';
-import { isDue } from './lib/srs.js';
+import { pendingForAnki } from './lib/anki.js';
 import ProfilePicker from './components/ProfilePicker.jsx';
 import Library from './components/Library.jsx';
 import Reader from './components/Reader.jsx';
 import Vocabulary from './components/Vocabulary.jsx';
-import Review from './components/Review.jsx';
 import Settings from './components/Settings.jsx';
 
 export const DEFAULT_SETTINGS = {
@@ -16,6 +16,7 @@ export const DEFAULT_SETTINGS = {
   autoSave: true,
   deeplKey: '',
   googleKey: '',
+  ankiDeck: 'Lesen',
 };
 
 export default function App() {
@@ -46,7 +47,6 @@ const NAV = [
   { id: 'library', label: 'Library', icon: '▤' },
   { id: 'reader', label: 'Reader', icon: '❦' },
   { id: 'vocabulary', label: 'Vocabulary', icon: '★' },
-  { id: 'review', label: 'Review', icon: '↻' },
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
@@ -58,6 +58,7 @@ function Workspace({ profile, onSwitch }) {
   const [openTextId, setOpenTextId] = useState(null);
 
   const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...storedSettings }), [storedSettings]);
+  useMeaningFiller(words, setWords, settings);
 
   useEffect(() => {
     const dark =
@@ -76,7 +77,7 @@ function Workspace({ profile, onSwitch }) {
     return {
       known: all.filter((w) => w.status === KNOWN && !w.isPhrase).length,
       learning: all.filter(isLearning).length,
-      due: all.filter((w) => isLearning(w) && isDue(w)).length,
+      forAnki: words ? pendingForAnki(words).length : 0,
     };
   }, [words]);
 
@@ -104,7 +105,11 @@ function Workspace({ profile, onSwitch }) {
             >
               <span className="nav-icon">{n.icon}</span>
               {n.label}
-              {n.id === 'review' && stats.due > 0 && <span className="badge">{stats.due}</span>}
+              {n.id === 'vocabulary' && stats.forAnki > 0 && (
+                <span className="badge" title="Words waiting to be sent to Anki">
+                  {stats.forAnki}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -140,8 +145,9 @@ function Workspace({ profile, onSwitch }) {
             onBack={() => setView('library')}
           />
         )}
-        {view === 'vocabulary' && <Vocabulary words={words} setWords={setWords} texts={texts} onOpen={open} />}
-        {view === 'review' && <Review words={words} setWords={setWords} />}
+        {view === 'vocabulary' && (
+          <Vocabulary words={words} setWords={setWords} texts={texts} settings={settings} onOpen={open} />
+        )}
         {view === 'settings' && (
           <Settings settings={settings} setSettings={setSettings} profile={profile} />
         )}
