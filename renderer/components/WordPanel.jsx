@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { articleOf, firstGloss } from '../lib/words.js';
+import { LOOKUP_VERSION, articleOf, firstGloss, lookupFields } from '../lib/words.js';
 import { speak } from '../lib/speech.js';
 
 const enc = encodeURIComponent;
@@ -39,7 +39,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
   const saveFields = () =>
     isWord
       ? data?.found
-        ? { translation: firstGloss(data), lemma: data.lemma, gender: data.gender, looked: true }
+        ? { translation: firstGloss(data), ...lookupFields(data) }
         : {}
       : { translation: data?.text || '' };
 
@@ -52,13 +52,12 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
       return;
     }
     if (!data.found) return;
-    const details = { lemma: data.lemma, gender: data.gender, looked: true };
     if (!record) {
       if (settings.autoSave && sel.context) onPatch(saveFields());
       return;
     }
-    if (!record.translation?.trim() || !record.looked) {
-      onPatch({ ...details, ...(record.translation?.trim() ? {} : { translation: firstGloss(data) }) });
+    if (!record.translation?.trim() || record.looked !== LOOKUP_VERSION) {
+      onPatch({ ...lookupFields(data), ...(record.translation?.trim() ? {} : { translation: firstGloss(data) }) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -73,6 +72,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         <div className="panel-word">
           {article && isBaseForm && <span className={`article g-${data.gender}`}>{article}</span>}
           <span className="word">{sel.text}</span>
+          {article && isBaseForm && data.plural && <span className="plural muted">, {data.plural}</span>}
         </div>
         <div className="row tight">
           <button

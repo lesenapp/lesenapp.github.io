@@ -1358,3 +1358,33 @@ body {
     flex-wrap: wrap;
   }
 }
+
+/* ---------- my words: list + dictionary panel ---------- */
+
+.split {
+  display: flex;
+  height: 100%;
+}
+
+.split-main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+}
+
+.vmain {
+  cursor: pointer;
+}
+
+.vhead {
+  font-weight: 600;
+}
+
+.vrow.selected {
+  background: var(--accent-soft);
+}
+
+.panel-word .plural {
+  font-family: var(--reading-font);
+  font-size: 20px;
+}

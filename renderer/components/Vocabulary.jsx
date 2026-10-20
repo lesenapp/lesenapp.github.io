@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { articleOf, remove, upsert } from '../lib/words.js';
+import { wordKey } from '../lib/text.js';
+import WordPanel from './WordPanel.jsx';
 import {
   ankiConnectStatus,
   buildApkg,
@@ -9,11 +11,25 @@ import {
   requestAnkiPermission,
   sentStamp,
 } from '../lib/anki.js';
-import { speak } from '../lib/speech.js';
 
 export default function Vocabulary({ words, setWords, texts, settings, onOpen }) {
   const [onlyFavourites, setOnlyFavourites] = useState(false);
   const [query, setQuery] = useState('');
+  const [sel, setSel] = useState(null); // word shown in the side panel, as in the reader
+
+  const select = (w) => setSel({ kind: w.isPhrase ? 'phrase' : 'word', text: w.word, key: w.key, context: w.context || '' });
+  const patchSelected = (p) =>
+    setWords((ws) =>
+      p === null
+        ? remove(ws, sel.key)
+        : upsert(ws, sel.key, { word: ws[sel.key]?.word ?? sel.text, isPhrase: sel.kind === 'phrase', ...p })
+    );
+
+  useEffect(() => {
+    const onKey = (e) => e.key === 'Escape' && setSel(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const all = useMemo(() => Object.values(words), [words]);
   const favourites = all.filter((w) => w.favorite).length;
@@ -36,76 +52,99 @@ export default function Vocabulary({ words, setWords, texts, settings, onOpen })
   const titles = Object.fromEntries(texts.map((t) => [t.id, t.title]));
 
   return (
-    <div className="page-wrap">
-      <header className="view-head">
-        <div>
-          <h1>My words</h1>
-          <p className="muted">
-            {all.length} saved{favourites > 0 && ` · ${favourites} favourites`}
-          </p>
+    <div className="split">
+      <div className="split-main">
+        <div className="page-wrap">
+          <header className="view-head">
+            <div>
+              <h1>My words</h1>
+              <p className="muted">
+                {all.length} saved{favourites > 0 && ` · ${favourites} favourites`}
+              </p>
+            </div>
+            <input className="input search" placeholder="Search words or meanings" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </header>
+    
+          <AnkiBar words={words} setWords={setWords} deck={settings.ankiDeck || 'Lesen'} />
+    
+          {favourites > 0 && (
+            <div className="seg wide">
+              <button className={!onlyFavourites ? 'on' : ''} onClick={() => setOnlyFavourites(false)}>
+                All
+              </button>
+              <button className={onlyFavourites ? 'on' : ''} onClick={() => setOnlyFavourites(true)}>
+                ★ Favourites
+              </button>
+            </div>
+          )}
+    
+          {list.length === 0 ? (
+            <div className="empty">
+              <p>{query ? 'No matches.' : 'Words you look up while reading appear here.'}</p>
+            </div>
+          ) : (
+            <div className="vocab">
+              {list.map((w) => (
+                <WordRow
+                  key={w.key}
+                  w={w}
+                  selected={sel?.key === w.key}
+                  source={titles[w.textId]}
+                  onSelect={() => select(w)}
+                  onPatch={(p) => patch(w.key, p)}
+                  onOpen={onOpen}
+                  onRemove={() => setWords((ws) => remove(ws, w.key))}
+                />
+              ))}
+            </div>
+          )}
         </div>
-        <input className="input search" placeholder="Search words or meanings" value={query} onChange={(e) => setQuery(e.target.value)} />
-      </header>
+      </div>
 
-      <AnkiBar words={words} setWords={setWords} deck={settings.ankiDeck || 'Lesen'} />
-
-      {favourites > 0 && (
-        <div className="seg wide">
-          <button className={!onlyFavourites ? 'on' : ''} onClick={() => setOnlyFavourites(false)}>
-            All
-          </button>
-          <button className={onlyFavourites ? 'on' : ''} onClick={() => setOnlyFavourites(true)}>
-            ★ Favourites
-          </button>
-        </div>
-      )}
-
-      {list.length === 0 ? (
-        <div className="empty">
-          <p>{query ? 'No matches.' : 'Words you look up while reading appear here.'}</p>
-        </div>
-      ) : (
-        <div className="vocab">
-          {list.map((w) => (
-            <WordRow
-              key={w.key}
-              w={w}
-              source={titles[w.textId]}
-              onPatch={(p) => patch(w.key, p)}
-              onOpen={onOpen}
-              onRemove={() => setWords((ws) => remove(ws, w.key))}
-            />
-          ))}
-        </div>
+      {sel && (
+        <WordPanel
+          key={sel.key + sel.kind}
+          sel={sel}
+          record={words[sel.key]}
+          settings={settings}
+          onPatch={patchSelected}
+          onNavigate={(word) => setSel({ kind: 'word', text: word, key: wordKey(word), context: '' })}
+          onClose={() => setSel(null)}
+        />
       )}
     </div>
   );
 }
 
-function WordRow({ w, source, onPatch, onOpen, onRemove }) {
+function WordRow({ w, selected, source, onSelect, onPatch, onOpen, onRemove }) {
   const article = articleOf(w);
-  const head = article ? w.lemma : w.word;
-  const showForm = article && w.word.toLowerCase() !== w.lemma.toLowerCase();
+  const head = !w.isPhrase && w.lemma ? w.lemma : w.word;
+  const showForm = head.toLowerCase() !== w.word.toLowerCase();
 
   return (
-    <div className="vrow">
+    <div className={`vrow ${selected ? 'selected' : ''}`}>
       <button className={`icon-btn star ${w.favorite ? 'on' : ''}`} title="Favourite" onClick={() => onPatch({ favorite: !w.favorite })}>
         {w.favorite ? '★' : '☆'}
       </button>
 
-      <div className="vmain">
+      <div className="vmain" onClick={onSelect} title="Show dictionary">
         <div className="vword">
           {article && <span className={`article g-${w.gender}`}>{article}</span>}
-          <button className="link plain" onClick={() => speak(article ? `${article} ${head}` : head)} title="Listen">
-            {head}
-          </button>
+          <span className="vhead">{head}</span>
+          {article && w.plural && <span className="muted">, {w.plural}</span>}
           {showForm && <span className="muted small">{w.word}</span>}
         </div>
         {w.context && (
           <div className="vctx" title={w.context}>
             {w.context}
             {source && (
-              <button className="link small" onClick={() => onOpen(w.textId)}>
+              <button
+                className="link small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpen(w.textId);
+                }}
+              >
                 {' '}
                 — {source}
               </button>

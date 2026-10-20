@@ -5,32 +5,24 @@
 import { strToU8, zipSync } from 'fflate';
 import { headword } from './words.js';
 
-const MODEL_ID = 1729411200000; // fixed: every export targets the same note type
-const MODEL_NAME = 'Lesen (German ↔ English)';
-const FIELDS = ['Word', 'Meaning', 'Context', 'Note'];
+// Same layout as Anki's built-in "Basic (and reversed card)", matching the user's Goethe deck:
+//   Front: das Geld            Back: the money | Hast du noch Geld? -> Do you still have money?
+const MODEL_ID = 1729497600000; // fixed: every export targets the same note type
+const MODEL_NAME = 'Lesen (Basic and reversed card)';
+const FIELDS = ['Front', 'Back'];
 
-const CSS = `.card { font-family: Georgia, 'Times New Roman', serif; font-size: 22px; text-align: center; color: #24211c; background: #fbfaf7; padding: 24px 16px; }
-.nightMode.card, .night_mode .card { color: #ebe7df; background: #1c1b20; }
-.word { font-size: 34px; font-weight: bold; }
-.meaning { font-size: 26px; }
-.ctx { margin-top: 18px; font-size: 18px; font-style: italic; opacity: .8; }
-.ctx b { font-style: normal; background: rgba(245, 190, 30, .35); border-radius: 4px; padding: 0 3px; }
-.note { margin-top: 14px; font-size: 16px; opacity: .7; white-space: pre-wrap; }
-hr#answer { margin: 22px 0; border: 0; border-top: 1px solid rgba(128, 128, 128, .35); }`;
+const CSS = `.card {
+ font-family: arial;
+ font-size: 20px;
+ text-align: center;
+ color: black;
+ background-color: white;
+}
+`;
 
-const CONTEXT = '{{#Context}}<div class="ctx">{{Context}}</div>{{/Context}}';
-const NOTE = '{{#Note}}<div class="note">{{Note}}</div>{{/Note}}';
 const TEMPLATES = [
-  {
-    name: 'German → English',
-    qfmt: `<div class="word">{{Word}}</div>${CONTEXT}`,
-    afmt: `{{FrontSide}}<hr id="answer"><div class="meaning">{{Meaning}}</div>${NOTE}`,
-  },
-  {
-    name: 'English → German',
-    qfmt: '<div class="meaning">{{Meaning}}</div>',
-    afmt: `{{FrontSide}}<hr id="answer"><div class="word">{{Word}}</div>${CONTEXT}${NOTE}`,
-  },
+  { name: 'Card 1', qfmt: '{{Front}}', afmt: '{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}' },
+  { name: 'Card 2', qfmt: '{{Back}}', afmt: '{{FrontSide}}\n\n<hr id=answer>\n\n{{Front}}' },
 ];
 
 const SCHEMA = `
@@ -50,23 +42,14 @@ CREATE INDEX ix_notes_csum on notes (csum);`;
 const escapeHtml = (s) =>
   String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
-function contextHtml(sentence, word) {
-  const safe = escapeHtml(sentence);
-  if (!word) return safe;
-  const i = safe.toLowerCase().indexOf(escapeHtml(word).toLowerCase());
-  if (i < 0) return safe;
-  const len = escapeHtml(word).length;
-  return `${safe.slice(0, i)}<b>${safe.slice(i, i + len)}</b>${safe.slice(i + len)}`;
-}
-
-// The four Anki fields for a saved word; also used to detect changes since the last export.
+// Front and Back for a saved word; also used to detect changes since the last export.
+//   Back: "meaning | German sentence -> English sentence" (+ the user's note on a new line)
 export function ankiFields(w) {
-  return [
-    escapeHtml(headword(w)),
-    escapeHtml(w.translation),
-    contextHtml(w.context, w.word),
-    escapeHtml(w.note).replace(/\n/g, '<br>'),
-  ];
+  let back = w.translation.trim();
+  if (w.context) back += ` | ${w.context}${w.contextTranslation ? ` -> ${w.contextTranslation}` : ''}`;
+  let html = escapeHtml(back);
+  if (w.note?.trim()) html += `<br><br>${escapeHtml(w.note.trim()).replace(/\n/g, '<br>')}`;
+  return [escapeHtml(headword(w)), html];
 }
 
 const signature = (w) => ankiFields(w).join('\u001f');

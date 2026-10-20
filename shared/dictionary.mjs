@@ -19,6 +19,9 @@ function decode(s) {
   });
 }
 
+const INFLECTION =
+  /\b(singular|plural|nominative|accusative|dative|genitive|inflection|inflected|participle|preterite|past|present|imperative|subjunctive|infinitive|comparative|superlative|person|form|alternative|spelling|obsolete|archaic)\b/i;
+
 const stripHtml = (html) => decode(html.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 const unique = (list) => [...new Set(list)];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -47,6 +50,41 @@ function sectionBodies(src, heading) {
     out.push(stop < 0 ? after : after.slice(0, stop));
   }
   return out.join('\n');
+}
+
+// Gender and the dictionary-style plural ending ("-e", "-¨er", "-n", "-") from Wiktionary's
+// {{de-noun|gender,genitive,plural}} template, following the template's own defaults.
+function nounInfo(args, lemma) {
+  const parts = args.split('|').map((a) => a.trim());
+  const positional = parts.filter((a) => !a.includes('='));
+  const named = Object.fromEntries(parts.filter((a) => a.includes('=')).map((a) => a.split('=')));
+  const specs = (positional[0] || '').split(',');
+  const g = specs[0] || '';
+  // Feminine nouns may leave out the (unchanged) genitive: "f,^" means plural "^".
+  const spec = g.startsWith('f') && specs.length === 2 ? specs[1] : specs[2];
+
+  if (g === '+') {
+    // Adjectival noun: gender comes from m=/f=/n=, plural ends in -n, and dictionaries list
+    // it in the weak form after the article (Erwachsener → der Erwachsene).
+    const gender = ['m', 'f', 'n'].find((k) => k in named) ?? null;
+    const form = (gender === 'm' && /er$/.test(lemma)) || (gender === 'n' && /es$/.test(lemma)) ? lemma.slice(0, -1) : lemma;
+    return { gender, plural: gender ? '-n' : null, form };
+  }
+  if (g.startsWith('p')) return { gender: 'p', plural: null }; // plural-only (die Kosten)
+  const gender = g.match(/^[mfn]/)?.[0] ?? named.g?.match(/^[mfn]/)?.[0] ?? null;
+  if (!gender) return { gender: null, plural: null };
+
+  const p = spec?.split(':')[0].trim();
+  let plural;
+  if (p === undefined || p === '') {
+    if (gender === 'f') plural = /in$/.test(lemma) ? '-nen' : /(e|el|er)$/.test(lemma) ? '-n' : '-en';
+    else plural = /(el|en|er|chen|lein)$/.test(lemma) ? '-' : /nis$/.test(lemma) ? '-se' : '-e';
+  } else if (p === '-' || p === '!') plural = null; // no plural
+  else if (p.startsWith('^')) plural = `-¨${p.slice(1)}`;
+  else if (/^[a-zäöüß]{1,4}$/.test(p)) plural = `-${p}`;
+  else if (/^\p{Lu}/u.test(p)) plural = p; // irregular, given in full
+  else plural = null;
+  return { gender, plural };
 }
 
 export function createDictionary({ fetch, cache }) {
@@ -85,12 +123,14 @@ export function createDictionary({ fetch, cache }) {
           .map((d) => {
             const link = d.definition.match(/form-of-definition-link[\s\S]*?<a[^>]*title="([^"#]+)/);
             const formOf = link ? stripHtml(link[1]) : null;
-            if (formOf) lemmas.add(formOf);
+            // "plural of Haus" is an inflection; "agent noun of lehren: teacher" is a word of its own.
+            const inflection = Boolean(formOf) && INFLECTION.test(stripHtml(d.definition).split(/\bof\b/)[0]);
+            if (inflection) lemmas.add(formOf);
             const examples = (d.parsedExamples || [])
               .map((e) => [e.example, e.translation].filter(Boolean).map(stripHtml).join(' — '))
               .filter(Boolean)
               .slice(0, 2);
-            return { text: stripHtml(d.definition), formOf, examples };
+            return { text: stripHtml(d.definition), formOf, inflection, examples };
           }),
       }))
       .filter((e) => e.defs.length);
@@ -110,15 +150,14 @@ export function createDictionary({ fetch, cache }) {
     const de = end < 0 ? rest : rest.slice(0, end);
 
     let gender = null;
+    let plural = null;
+    let form = null;
     const noun = de.match(/\{\{de-noun\|([^}]*)\}\}/);
-    if (noun) {
-      const args = noun[1].split('|');
-      const named = args.find((a) => /^g=/.test(a.trim()));
-      const first = args.find((a) => !a.includes('=')) || '';
-      gender = (named ? named.trim().slice(2) : first.trim()).match(/^[mfn]/)?.[0] ?? null;
-    }
+    if (noun) ({ gender, plural, form = null } = nounInfo(noun[1], title));
     return {
       gender,
+      plural,
+      form,
       ipa: de.match(/\{\{IPA\|de\|([^}|]+)/)?.[1] ?? null,
       synonyms: [
         ...templateArgs(de, 'syn|synonyms'),
@@ -148,7 +187,7 @@ export function createDictionary({ fetch, cache }) {
   async function lookup(word) {
     const query = String(word || '').trim();
     if (!query) return { query, found: false, entries: [] };
-    const key = `lk:${query}`;
+    const key = `lk3:${query}`; // bumped whenever the result shape changes
     const cached = await cache.get(key);
     if (cached) return cached;
 
@@ -173,21 +212,26 @@ export function createDictionary({ fetch, cache }) {
         ...found.flatMap((f) => f.entries),
         ...lemmaFound.flatMap((f) => f.entries.map((e) => ({ ...e, lemmaOf: query }))),
       ];
-      const hasOwnMeaning = found.some((f) => f.entries.some((e) => e.defs.some((d) => !d.formOf)));
-      const lemma = lemmaFound[0]?.title ?? (hasOwnMeaning ? titles[0] : lemmaTitles[0]) ?? titles[0] ?? null;
+      const hasOwnMeaning = found.some((f) => f.entries.some((e) => e.defs.some((d) => !d.inflection)));
+      // A word with a meaning of its own is its own base form (Lehrer, not "lehren").
+      const lemma = (hasOwnMeaning ? titles[0] : lemmaFound[0]?.title ?? lemmaTitles[0]) ?? titles[0] ?? null;
 
       const detailTitles = unique([...titles, ...lemmaFound.map((f) => f.title)]).slice(0, 2);
       const [details, thesaurus] = await Promise.all([
-        Promise.all(detailTitles.map((t) => wiktionaryDetails(t).catch(() => ({})))),
+        // A failed details request fails the lookup (not cached, retried later) rather than
+        // saving the word without its gender.
+        Promise.all(detailTitles.map((t) => wiktionaryDetails(t))),
         openThesaurus(lemma || query),
       ]);
 
+      const noun = details.find((d) => d.gender);
       return remember(key, {
         query,
         found: entries.length > 0,
-        lemma,
+        lemma: noun?.form || lemma,
         entries,
-        gender: details.find((d) => d.gender)?.gender ?? null,
+        gender: noun?.gender ?? null,
+        plural: noun?.plural ?? null,
         ipa: details.find((d) => d.ipa)?.ipa ?? null,
         synonyms: unique(details.flatMap((d) => d.synonyms || [])).slice(0, 30),
         antonyms: unique(details.flatMap((d) => d.antonyms || [])).slice(0, 20),
