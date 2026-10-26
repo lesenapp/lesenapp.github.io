@@ -786,6 +786,7 @@ kbd {
   resize: vertical;
 }
 
+
 .tabs {
   display: flex;
   gap: 4px;
@@ -1386,161 +1387,6 @@ body {
   font-size: 20px;
 }
 
-/* ---------- chat ---------- */
-
-.chat {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-}
-
-.chat-scroll {
-  flex: 1;
-  overflow: auto;
-}
-
-.key-setup h3 {
-  margin: 0 0 8px;
-}
-
-.key-setup ol {
-  margin: 0 0 10px;
-  padding-left: 20px;
-  line-height: 1.7;
-}
-
-.chat-examples {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.chat-examples p {
-  width: 100%;
-  margin: 0 0 4px;
-}
-
-.chat-examples .chip {
-  text-align: left;
-}
-
-.messages {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-bottom: 12px;
-}
-
-.msg {
-  max-width: 92%;
-  padding: 10px 14px;
-  border-radius: var(--radius);
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-}
-
-.msg.user {
-  align-self: flex-end;
-  background: var(--accent-soft);
-  white-space: pre-wrap;
-}
-
-.msg.model {
-  align-self: flex-start;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-}
-
-.msg.typing {
-  color: var(--muted);
-}
-
-.msg.error-msg {
-  align-self: stretch;
-  color: var(--danger);
-  border: 1px solid var(--danger);
-}
-
-.msg-copy {
-  display: block;
-  margin-top: 4px;
-  color: var(--muted);
-}
-
-.md p,
-.md ul,
-.md ol {
-  margin: 0 0 8px;
-}
-
-.md ul,
-.md ol {
-  padding-left: 20px;
-}
-
-.md li.sub {
-  margin-left: 18px;
-}
-
-.md h4 {
-  margin: 12px 0 6px;
-}
-
-.md h4:first-child {
-  margin-top: 0;
-}
-
-.md code {
-  background: var(--bg);
-  padding: 1px 4px;
-  border-radius: 4px;
-}
-
-.md hr {
-  border: 0;
-  border-top: 1px solid var(--border);
-}
-
-.md-table {
-  overflow-x: auto;
-  margin-bottom: 8px;
-}
-
-.md-table table {
-  border-collapse: collapse;
-  font-size: 0.93em;
-}
-
-.md-table th,
-.md-table td {
-  border: 1px solid var(--border);
-  padding: 4px 8px;
-  text-align: left;
-}
-
-.chat-input {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  max-width: 720px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 10px 16px 16px;
-}
-
-.chat-input textarea {
-  flex: 1;
-  resize: none;
-}
-
-.ask-ai {
-  width: 100%;
-  justify-content: center;
-}
-
 .tabs {
   overflow-x: auto;
   scrollbar-width: none;
@@ -1562,10 +1408,4 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fff;
-}
-
-@media (max-width: 760px) {
-  .chat-input {
-    padding: 8px 12px 10px;
-  }
 }

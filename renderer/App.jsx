@@ -9,8 +9,6 @@ import Library from './components/Library.jsx';
 import Reader from './components/Reader.jsx';
 import Vocabulary from './components/Vocabulary.jsx';
 import Settings from './components/Settings.jsx';
-import Chat from './components/Chat.jsx';
-import { GEMINI_MODELS } from './lib/gemini.js';
 
 export const DEFAULT_SETTINGS = {
   theme: 'system',
@@ -18,8 +16,6 @@ export const DEFAULT_SETTINGS = {
   wordsPerPage: 250,
   autoSave: true,
   ankiDeck: 'Lesen',
-  geminiKey: '',
-  geminiModel: GEMINI_MODELS[0].id,
 };
 
 export default function App() {
@@ -50,7 +46,6 @@ const NAV = [
   { id: 'library', label: 'Library', icon: '▤' },
   { id: 'reader', label: 'Reader', icon: '❦' },
   { id: 'vocabulary', label: 'My words', icon: '★' },
-  { id: 'chat', label: 'Chat', icon: '✦' },
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
@@ -60,11 +55,6 @@ function Workspace({ profile, onSwitch }) {
   const [storedSettings, setSettings] = usePersisted(profile.id, 'settings', DEFAULT_SETTINGS);
   const [view, setView] = useState('library');
   const [openTextId, setOpenTextId] = useState(null);
-  const [chatQuestion, setChatQuestion] = useState(null); // sent from the word panel's Ask AI
-  const askAI = useCallback((text) => {
-    setChatQuestion({ id: Date.now(), text });
-    setView('chat');
-  }, []);
 
   const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...storedSettings }), [storedSettings]);
   useMeaningFiller(words, setWords);
@@ -155,19 +145,10 @@ function Workspace({ profile, onSwitch }) {
             settings={settings}
             onUpdateText={(patch) => updateText(openText.id, patch)}
             onBack={() => setView('library')}
-            onAsk={askAI}
           />
         )}
         {view === 'vocabulary' && (
-          <Vocabulary words={words} setWords={setWords} texts={texts} settings={settings} onOpen={open} onAsk={askAI} />
-        )}
-        {view === 'chat' && (
-          <Chat
-            profileId={profile.id}
-            settings={settings}
-            incoming={chatQuestion}
-            onOpenSettings={() => setView('settings')}
-          />
+          <Vocabulary words={words} setWords={setWords} texts={texts} settings={settings} onOpen={open} />
         )}
         {view === 'settings' && (
           <Settings settings={settings} setSettings={setSettings} profile={profile} />
