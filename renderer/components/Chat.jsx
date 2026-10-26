@@ -77,6 +77,8 @@ export default function Chat({ profileId, settings, incoming, onOpenSettings }) 
   if (!messages) return <div className="loading">Loading…</div>;
 
   const busy = answer !== null;
+  // What "Gemini app" copies: the text being typed, else the last question asked here.
+  const appQuestion = draft.trim() || messages.findLast((m) => m.role === 'user')?.text || '';
   return (
     <div className="chat">
       <div className="chat-scroll">
@@ -157,6 +159,15 @@ export default function Chat({ profileId, settings, incoming, onOpenSettings }) 
             Send
           </button>
         )}
+        <button
+          type="button"
+          className="btn ghost"
+          disabled={!appQuestion}
+          title="Copy the question and open the Gemini app (your Gemini Pro plan, e.g. 4 Argon) – paste it there"
+          onClick={() => openInGeminiApp(appQuestion)}
+        >
+          Gemini app ↗
+        </button>
       </form>
     </div>
   );
@@ -199,8 +210,10 @@ function KeySetup({ onOpenSettings, draft }) {
   );
 }
 
+// The Gemini app/site has no way to receive a question, so it goes through the clipboard.
 export function openInGeminiApp(text) {
-  navigator.clipboard?.writeText(text).catch(() => {});
+  const prompt = `${text}\n\n(I'm learning German. Explain as a German tutor, in English: meaning, word formation, word order, case, verb forms, separable verbs – concise.)`;
+  navigator.clipboard?.writeText(prompt).catch(() => {});
   window.api.openExternal('https://gemini.google.com/app');
 }
 

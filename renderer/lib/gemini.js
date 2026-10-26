@@ -6,6 +6,8 @@ export const GEMINI_MODELS = [
   { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash (best free)' },
   { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite (faster, more requests per day)' },
   { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (older)' },
+  // Not on the free tier: needs billing on the key's Google Cloud project.
+  { id: 'gemini-4-argon', label: 'Gemini 4 Argon (paid API, needs billing)' },
 ];
 
 export const KEY_PAGE = 'https://aistudio.google.com/apikey';
@@ -60,6 +62,8 @@ async function errorMessage(res) {
     // not JSON
   }
   if (res.status === 400 && /API key/i.test(message)) return 'The Gemini API key is not valid. Check it in Settings.';
+  if ([403, 404, 429].includes(res.status) && /argon/.test(res.url))
+    return 'Gemini 4 Argon is not free in the API (it needs billing). Use the “Gemini app ↗” button (your Pro plan) or choose a Flash model in Settings.';
   if (res.status === 403) return 'This API key is not allowed to use Gemini. Create a new key in Google AI Studio.';
   if (res.status === 404) return 'This model is not available. Choose another model in Settings.';
   if (res.status === 429)
