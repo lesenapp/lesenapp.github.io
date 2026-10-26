@@ -224,14 +224,34 @@ function Definitions({ data, onPick, onNavigate }) {
 }
 
 // Google Translate's own page embedded in the panel (free, no API key). Browsers cannot
-// embed it, so the web app opens Google Translate (the app on phones, if installed) instead.
+// embed it, so the web app opens Google Translate instead. On phones the link is caught by the
+// Translate app, which drops the text, so there the text is handed over with the share sheet.
 function GoogleTranslate({ text }) {
+  const [copied, setCopied] = useState(false);
   const url = `https://translate.google.com/?sl=de&tl=en&op=translate&text=${enc(text.slice(0, 5000))}`;
   if (window.api.platform === 'web') {
+    const phone = window.matchMedia('(hover: none)').matches && navigator.share;
+    const open = async () => {
+      // Copied as well, so it can be pasted if the text still does not arrive. Not awaited:
+      // the share sheet must open straight from the tap.
+      navigator.clipboard?.writeText(text).then(() => setCopied(true), () => {});
+      if (!phone) return window.api.openExternal(url);
+      try {
+        await navigator.share({ text });
+      } catch (e) {
+        if (e.name !== 'AbortError') window.api.openExternal(url);
+      }
+    };
     return (
-      <button className="btn google-open" onClick={() => window.api.openExternal(url)}>
-        <span className="gt-icon-btn">G</span> Open in Google Translate ↗
-      </button>
+      <div>
+        <button className="btn google-open" onClick={open}>
+          <span className="gt-icon-btn">G</span> {phone ? 'Send to Google Translate' : 'Open in Google Translate ↗'}
+        </button>
+        <p className="muted small">
+          {phone && 'Choose Translate in the list that opens. '}
+          {copied && 'The text is also copied — paste it if it does not appear.'}
+        </p>
+      </div>
     );
   }
   return (
