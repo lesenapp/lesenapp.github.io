@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { germanVoice, speak } from '../lib/speech.js';
+import { GEMINI_MODELS, KEY_PAGE } from '../lib/gemini.js';
 
 export default function Settings({ settings, setSettings, profile }) {
   const set = (patch) => setSettings((s) => ({ ...s, ...patch }));
@@ -85,6 +86,41 @@ export default function Settings({ settings, setSettings, profile }) {
           />
         </div>
 
+        <div className="setting column">
+          <div>
+            <b>Gemini API key (for Chat)</b>
+            <p className="muted small">
+              Free: get one at{' '}
+              <button className="link" onClick={() => window.api.openExternal(KEY_PAGE)}>
+                Google AI Studio → API keys ↗
+              </button>{' '}
+              (sign in → Create API key → copy). Uses Gemini’s free tier; no card needed. Kept only on this device.
+            </p>
+          </div>
+          <input
+            className="input"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={settings.geminiKey}
+            placeholder="AIza…"
+            onChange={(e) => set({ geminiKey: e.target.value.trim() })}
+          />
+        </div>
+
+        <div className="setting column">
+          <div>
+            <b>Gemini model</b>
+            <p className="muted small">If Chat says the free limit is used up, switch to Flash-Lite.</p>
+          </div>
+          <select className="input" value={settings.geminiModel} onChange={(e) => set({ geminiModel: e.target.value })}>
+            {GEMINI_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
         <div className="setting">
           <div>

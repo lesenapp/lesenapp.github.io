@@ -4,7 +4,7 @@ import { upsert, remove } from '../lib/words.js';
 import { useBackButton } from '../lib/useBackButton.js';
 import WordPanel from './WordPanel.jsx';
 
-export default function Reader({ text, words, setWords, settings, onUpdateText, onBack }) {
+export default function Reader({ text, words, setWords, settings, onUpdateText, onBack, onAsk }) {
   const paragraphs = useMemo(() => tokenize(text.content), [text.content]);
   const pages = useMemo(() => paginate(paragraphs, settings.wordsPerPage), [paragraphs, settings.wordsPerPage]);
   const [page, setPage] = useState(() => Math.min(text.page || 0, pages.length - 1));
@@ -173,6 +173,7 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
           settings={settings}
           onPatch={patchSelected}
           onNavigate={navigate}
+          onAsk={onAsk}
           onClose={() => setSel(null)}
         />
       )}

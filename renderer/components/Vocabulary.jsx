@@ -13,7 +13,7 @@ import {
   sentStamp,
 } from '../lib/anki.js';
 
-export default function Vocabulary({ words, setWords, texts, settings, onOpen }) {
+export default function Vocabulary({ words, setWords, texts, settings, onOpen, onAsk }) {
   const [onlyFavourites, setOnlyFavourites] = useState(false);
   const [query, setQuery] = useState('');
   const [sel, setSel] = useState(null); // word shown in the side panel, as in the reader
@@ -112,6 +112,7 @@ export default function Vocabulary({ words, setWords, texts, settings, onOpen })
           onPatch={patchSelected}
           onNavigate={(word) => setSel({ kind: 'word', text: word, key: wordKey(word), context: '' })}
           onClose={() => setSel(null)}
+          onAsk={onAsk}
         />
       )}
     </div>

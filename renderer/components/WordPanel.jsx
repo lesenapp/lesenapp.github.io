@@ -16,7 +16,7 @@ const LINKS = [
   { name: 'Forvo (pronunciation)', url: (w) => `https://forvo.com/word/${enc(w)}/#de` },
 ];
 
-export default function WordPanel({ sel, record, settings, onPatch, onNavigate, onClose }) {
+export default function WordPanel({ sel, record, settings, onPatch, onNavigate, onAsk, onClose }) {
   const [data, setData] = useState(null);
   const [tab, setTab] = useState('dict');
   const isWord = sel.kind === 'word';
@@ -111,6 +111,11 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
       >
         {record ? '✓ Saved to my words' : '+ Save to my words'}
       </button>
+      {onAsk && (
+        <button className="btn ask-ai" onClick={() => onAsk(askQuestion(sel, isWord))} title="Explain with Gemini in Chat">
+          ✦ Ask AI {isWord ? 'about this word' : 'about this sentence'}
+        </button>
+      )}
 
       <label className="field">
         <span>My meaning</span>
@@ -135,11 +140,12 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         {[
           ['dict', isWord ? 'Dictionary' : 'Translation'],
           ['google', 'Google'],
+          ['dwds', 'DWDS'],
           ['syn', 'Synonyms'],
           ['wiki', 'Wikipedia'],
           ['links', 'More'],
         ]
-          .filter(([id]) => isWord || (id !== 'syn' && id !== 'google'))
+          .filter(([id]) => isWord || (id !== 'syn' && id !== 'google' && id !== 'dwds'))
           .map(([id, label]) => (
             <button key={id} className={`tab ${tab === id ? 'on' : ''}`} onClick={() => setTab(id)}>
               {label}
@@ -155,6 +161,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
             <PhraseTranslation data={data} record={record} onPatch={onPatch} text={sel.text} />
           ))}
         {tab === 'google' && <GoogleTranslate text={sel.text} />}
+        {tab === 'dwds' && <Dwds word={lookupWord} />}
         {tab === 'syn' && <Synonyms data={data} onNavigate={onNavigate} />}
         {tab === 'wiki' && <Wikipedia query={lookupWord} />}
         {tab === 'links' && (
@@ -237,6 +244,31 @@ function GoogleTranslate({ text }) {
       src={url}
       style={{ width: '100%', height: 'max(420px, calc(100vh - 420px))', borderRadius: 10, overflow: 'hidden' }}
     />
+  );
+}
+
+// The question "Ask AI" puts in the chat: the word in its sentence, or the selected phrase.
+function askQuestion(sel, isWord) {
+  const sentence = sel.context?.trim();
+  if (!isWord) {
+    return sentence && sentence !== sel.text
+      ? `Analyse “${sel.text}” in this sentence: “${sentence}”`
+      : `Analyse this: “${sel.text}”`;
+  }
+  return sentence ? `Explain “${sel.text}” in this sentence: “${sentence}”` : `Explain the word “${sel.text}”.`;
+}
+
+// DWDS (Digitales Wörterbuch der deutschen Sprache): German definitions, word formation,
+// collocations and real corpus examples. Its page is shown inside the panel.
+function Dwds({ word }) {
+  const url = `https://www.dwds.de/wb/${enc(word)}`;
+  return (
+    <div className="embed">
+      <iframe src={url} title="DWDS" referrerPolicy="no-referrer" />
+      <button className="link small" onClick={() => window.api.openExternal(url)}>
+        Open on dwds.de ↗
+      </button>
+    </div>
   );
 }
 
