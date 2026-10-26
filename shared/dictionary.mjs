@@ -2,7 +2,7 @@
 //  - English Wiktionary: German entries with English definitions, gender, IPA, synonyms
 //  - OpenThesaurus: German synonym groups
 //  - Wikipedia (de/en): article summaries
-//  - Google Cloud Translation / DeepL (optional keys) or MyMemory: phrase translation
+//  - MyMemory: phrase and sentence translation
 // All of these services allow browser (CORS) requests.
 //
 // createDictionary({ fetch, cache }) — `fetch` is a fetch-compatible function and
@@ -274,39 +274,11 @@ export function createDictionary({ fetch, cache }) {
 
   // ---------- Phrase translation ----------
 
-  // Provider order: Google Cloud Translation (if key), DeepL (if key), MyMemory (free, no key).
-  async function translate(text, keys = {}) {
+  // MyMemory: free, no key.
+  async function translate(text) {
     const q = String(text || '').trim().slice(0, 500);
     if (!q) return { text: '' };
-    const { googleKey, deeplKey } = keys || {};
     try {
-      if (googleKey) {
-        const key = `gt:${q}`;
-        const cached = await cache.get(key);
-        if (cached) return cached;
-        const res = await fetch(
-          `https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(googleKey.trim())}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ q, source: 'de', target: 'en', format: 'text' }),
-          }
-        );
-        const data = await res.json().catch(() => null);
-        if (!res.ok) throw new Error(`Google Translate: ${data?.error?.message || `HTTP ${res.status}`}`);
-        return remember(key, { text: decode(data.data.translations[0].translatedText), provider: 'Google Translate' });
-      }
-      if (deeplKey) {
-        const host = deeplKey.trim().endsWith(':fx') ? 'api-free.deepl.com' : 'api.deepl.com';
-        const res = await fetch(`https://${host}/v2/translate`, {
-          method: 'POST',
-          headers: { Authorization: `DeepL-Auth-Key ${deeplKey.trim()}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: [q], source_lang: 'DE', target_lang: 'EN-US' }),
-        });
-        if (!res.ok) throw new Error(`DeepL returned HTTP ${res.status}`);
-        const data = await res.json();
-        return { text: data.translations[0].text, provider: 'DeepL' };
-      }
       const key = `tr:${q}`;
       const cached = await cache.get(key);
       if (cached) return cached;

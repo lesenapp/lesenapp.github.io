@@ -8,7 +8,7 @@ const needsContext = (w) => Boolean(w.context) && !w.contextTranslation;
 // Quietly completes saved words in the background, one word at a time: a missing meaning,
 // the dictionary form (base form, gender, plural) and the English translation of the
 // sentence the word came from — everything the Anki card shows.
-export function useMeaningFiller(words, setWords, settings) {
+export function useMeaningFiller(words, setWords) {
   const busy = useRef(false);
   const tried = useRef(new Set());
   const [tick, setTick] = useState(0);
@@ -21,13 +21,12 @@ export function useMeaningFiller(words, setWords, settings) {
     if (!todo) return;
     busy.current = true;
     tried.current.add(todo.key);
-    const keys = { googleKey: settings.googleKey, deeplKey: settings.deeplKey };
 
     (async () => {
       const patch = {};
       try {
         if (todo.isPhrase && needsMeaning(todo)) {
-          const t = await window.api.translate(todo.word, keys);
+          const t = await window.api.translate(todo.word);
           if (t?.text) patch.translation = t.text;
         }
         if (needsLookup(todo)) {
@@ -35,7 +34,7 @@ export function useMeaningFiller(words, setWords, settings) {
           if (d?.found) Object.assign(patch, lookupFields(d), { translation: firstGloss(d) });
         }
         if (needsContext(todo)) {
-          const t = await window.api.translate(todo.context, keys);
+          const t = await window.api.translate(todo.context);
           if (t?.text) patch.contextTranslation = t.text;
         }
       } finally {
@@ -51,5 +50,5 @@ export function useMeaningFiller(words, setWords, settings) {
         setTick((n) => n + 1);
       }
     })();
-  }, [words, setWords, settings.googleKey, settings.deeplKey, tick]);
+  }, [words, setWords, tick]);
 }

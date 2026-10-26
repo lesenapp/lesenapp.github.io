@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { paginate, sentenceAround, tokenize, wordKey } from '../lib/text.js';
 import { upsert, remove } from '../lib/words.js';
+import { useBackButton } from '../lib/useBackButton.js';
 import WordPanel from './WordPanel.jsx';
 
 export default function Reader({ text, words, setWords, settings, onUpdateText, onBack }) {
@@ -9,6 +10,7 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
   const [page, setPage] = useState(() => Math.min(text.page || 0, pages.length - 1));
   const [sel, setSel] = useState(null);
   const pageRef = useRef();
+  useBackButton(Boolean(sel), () => setSel(null));
 
   useEffect(() => {
     onUpdateText({ page, opened: Date.now() });

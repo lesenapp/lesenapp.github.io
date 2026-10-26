@@ -749,9 +749,6 @@ kbd {
   margin-top: -6px;
 }
 
-.quick {
-  margin-top: -4px;
-}
 
 .save-btn {
   border: 1px solid var(--border);

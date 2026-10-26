@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePersisted } from './lib/usePersisted.js';
 import { useMeaningFiller } from './lib/useMeaningFiller.js';
+import { useBackButton } from './lib/useBackButton.js';
 import { isLegacyUnsaved } from './lib/words.js';
 import { pendingForAnki } from './lib/anki.js';
 import ProfilePicker from './components/ProfilePicker.jsx';
@@ -14,8 +15,6 @@ export const DEFAULT_SETTINGS = {
   fontSize: 21,
   wordsPerPage: 250,
   autoSave: true,
-  deeplKey: '',
-  googleKey: '',
   ankiDeck: 'Lesen',
 };
 
@@ -58,7 +57,8 @@ function Workspace({ profile, onSwitch }) {
   const [openTextId, setOpenTextId] = useState(null);
 
   const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...storedSettings }), [storedSettings]);
-  useMeaningFiller(words, setWords, settings);
+  useMeaningFiller(words, setWords);
+  useBackButton(view !== 'library', () => setView('library'));
 
   // Drop the "known"/"ignored" entries older versions created; they were never saved words.
   useEffect(() => {

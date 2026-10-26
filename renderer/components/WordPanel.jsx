@@ -18,22 +18,17 @@ const LINKS = [
 
 export default function WordPanel({ sel, record, settings, onPatch, onNavigate, onClose }) {
   const [data, setData] = useState(null);
-  const [quick, setQuick] = useState(null);
   const [tab, setTab] = useState('dict');
   const isWord = sel.kind === 'word';
-  const keys = { googleKey: settings.googleKey, deeplKey: settings.deeplKey };
 
   useEffect(() => {
     let alive = true;
-    const request = isWord ? window.api.lookup(sel.text) : window.api.translate(sel.text, keys);
+    const request = isWord ? window.api.lookup(sel.text) : window.api.translate(sel.text);
     request.then((d) => alive && setData(d));
-    // With a Google key, single words also get a one-line Google translation.
-    if (isWord && settings.googleKey) window.api.translate(sel.text, keys).then((d) => alive && setQuick(d));
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isWord, sel.text, settings.googleKey, settings.deeplKey]);
+  }, [isWord, sel.text]);
 
   // What a word is saved with: its first meaning plus base form and gender (for the article).
   const saveFields = () =>
@@ -108,20 +103,6 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         </div>
       )}
       {isWord && data?.ipa && <div className="ipa">{data.ipa}</div>}
-      {quick && (
-        <div className="quick">
-          {quick.error ? (
-            <span className="error small">{quick.error}</span>
-          ) : (
-            <>
-              <span className="muted small">Google:</span>{' '}
-              <button className="def" onClick={() => onPatch({ translation: quick.text })} title="Use as my meaning">
-                {quick.text}
-              </button>
-            </>
-          )}
-        </div>
-      )}
 
       <button
         className={`save-btn ${record ? 'on' : ''}`}

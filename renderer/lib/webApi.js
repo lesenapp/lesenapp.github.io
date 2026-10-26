@@ -73,7 +73,7 @@ export function installWebApi() {
     save: async (profileId, name, value) => queue(`profile:${profileId}:${name}`, value),
     lookup: (word) => dictionary.lookup(word),
     wikipedia: (query, lang) => dictionary.wikipedia(query, lang),
-    translate: (text, keys) => dictionary.translate(text, { googleKey: keys?.googleKey }),
+    translate: (text) => dictionary.translate(text),
     // AnkiConnect (Anki desktop add-on) listens on this computer only; phones never reach it.
     // It answers 403 until this site is allowed (see requestAnkiPermission in lib/anki.js).
     ankiConnect: async (body) => {

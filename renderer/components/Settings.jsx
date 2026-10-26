@@ -85,43 +85,6 @@ export default function Settings({ settings, setSettings, profile }) {
           />
         </div>
 
-        <div className="setting column">
-          <div>
-            <b>Google Translate API key (optional)</b>
-            <p className="muted small">
-              Google Cloud Translation API key. When set, phrases are translated with Google and every clicked word also
-              shows a Google translation. The first 500,000 characters per month are free (Google Cloud account with
-              billing required).
-            </p>
-          </div>
-          <input
-            className="input"
-            type="password"
-            placeholder="AIza…"
-            value={settings.googleKey}
-            onChange={(e) => set({ googleKey: e.target.value.trim() })}
-          />
-        </div>
-
-        {/* DeepL does not accept requests from browsers, so this is desktop-only. */}
-        {window.api.platform !== 'web' && (
-        <div className="setting column">
-          <div>
-            <b>DeepL API key (optional)</b>
-            <p className="muted small">
-              Better phrase translations. A free key (500,000 characters/month) is available at deepl.com/pro-api. Without a
-              key, phrases are translated with MyMemory. If both keys are set, Google is used.
-            </p>
-          </div>
-          <input
-            className="input"
-            type="password"
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx:fx"
-            value={settings.deeplKey}
-            onChange={(e) => set({ deeplKey: e.target.value.trim() })}
-          />
-        </div>
-        )}
 
         <div className="setting">
           <div>

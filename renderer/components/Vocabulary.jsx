@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { articleOf, remove, upsert } from '../lib/words.js';
 import { wordKey } from '../lib/text.js';
+import { useBackButton } from '../lib/useBackButton.js';
 import WordPanel from './WordPanel.jsx';
 import {
   ankiConnectStatus,
@@ -16,6 +17,7 @@ export default function Vocabulary({ words, setWords, texts, settings, onOpen })
   const [onlyFavourites, setOnlyFavourites] = useState(false);
   const [query, setQuery] = useState('');
   const [sel, setSel] = useState(null); // word shown in the side panel, as in the reader
+  useBackButton(Boolean(sel), () => setSel(null));
 
   const select = (w) => setSel({ kind: w.isPhrase ? 'phrase' : 'word', text: w.word, key: w.key, context: w.context || '' });
   const patchSelected = (p) =>

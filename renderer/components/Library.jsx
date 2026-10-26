@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { countWords } from '../lib/text.js';
+import { useBackButton } from '../lib/useBackButton.js';
 
 const SAMPLE = {
   title: 'Ein Morgen in Berlin',
@@ -12,6 +13,7 @@ Der Himmel ist grau, aber Anna lässt sich die Laune nicht verderben. Sie nimmt 
 
 export default function Library({ texts, setTexts, words, onOpen }) {
   const [editing, setEditing] = useState(null);
+  useBackButton(Boolean(editing), () => setEditing(null));
 
   const save = (draft) => {
     if (draft.id) setTexts((list) => list.map((t) => (t.id === draft.id ? { ...t, ...draft } : t)));

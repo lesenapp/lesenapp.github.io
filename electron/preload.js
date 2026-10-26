@@ -8,7 +8,7 @@ contextBridge.exposeInMainWorld('api', {
   save: (profileId, name, value) => ipcRenderer.invoke('data:save', profileId, name, value),
   lookup: (word) => ipcRenderer.invoke('dict:lookup', word),
   wikipedia: (query, lang) => ipcRenderer.invoke('dict:wikipedia', query, lang),
-  translate: (text, keys) => ipcRenderer.invoke('dict:translate', text, keys),
+  translate: (text) => ipcRenderer.invoke('dict:translate', text),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   ankiConnect: (body) => ipcRenderer.invoke('anki:connect', body),
   openAnkiPackage: (bytes, name) => ipcRenderer.invoke('anki:open-package', bytes, name),});
