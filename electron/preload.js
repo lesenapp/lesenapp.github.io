@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   lookup: (word) => ipcRenderer.invoke('dict:lookup', word),
   wikipedia: (query, lang) => ipcRenderer.invoke('dict:wikipedia', query, lang),
   translate: (text) => ipcRenderer.invoke('dict:translate', text),
+  inflection: (word) => ipcRenderer.invoke('dict:inflection', word),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   ankiConnect: (body) => ipcRenderer.invoke('anki:connect', body),
   openAnkiPackage: (bytes, name) => ipcRenderer.invoke('anki:open-package', bytes, name),});

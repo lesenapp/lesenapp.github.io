@@ -18,16 +18,33 @@ export const isLegacyUnsaved = (w) => w.status === 5 || w.status === -1;
 
 export const ARTICLES = { m: 'der', f: 'die', n: 'das', p: 'die' };
 
-// Bump when saved words need another dictionary pass (2: plural endings, 3: base forms).
-export const LOOKUP_VERSION = 3;
+// Bump when saved words need another dictionary pass (2: plural endings, 3: base forms,
+// 4: base forms of verb forms such as "rufe", separable verbs).
+export const LOOKUP_VERSION = 4;
 
 // What a word is saved with after a dictionary lookup.
 export const lookupFields = (data) => ({
   lemma: data.lemma,
   gender: data.gender,
   plural: data.plural ?? null,
+  particle: data.separable?.particle ?? null,
   looked: LOOKUP_VERSION,
 });
+
+// Dictionary lookup of a word as it appears in a text. With the particle that closes its
+// clause ("rufe … an") it becomes the separable verb ("anrufen") when that verb exists.
+export async function lookupWord(text, particle) {
+  const d = await window.api.lookup(text);
+  if (!particle || !d?.found) return d;
+  const bases = [d.lemma, ...d.entries.flatMap((e) => e.defs).filter((x) => x.inflection).map((x) => x.formOf)];
+  for (const base of [...new Set(bases)].filter((b) => b && /^\p{Ll}/u.test(b)).slice(0, 2)) {
+    const verb = await window.api.lookup(particle + base);
+    if (verb?.found && verb.entries.some((e) => e.pos === 'Verb')) {
+      return { ...verb, lemma: verb.lemma || particle + base, separable: { particle } };
+    }
+  }
+  return d;
+}
 
 // Wiktionary inflection lines ("nominative plural of Haus") that slipped past form-of detection.
 const GRAMMAR_NOTE =

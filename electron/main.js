@@ -37,6 +37,7 @@ ipcMain.handle('data:save', (_e, profileId, name, value) => store.save(profileId
 ipcMain.handle('dict:lookup', (_e, word) => dictionary.lookup(word));
 ipcMain.handle('dict:wikipedia', (_e, query, lang) => dictionary.wikipedia(query, lang));
 ipcMain.handle('dict:translate', (_e, text) => dictionary.translate(text));
+ipcMain.handle('dict:inflection', (_e, word) => dictionary.inflection(word));
 // Anki: AnkiConnect add-on on localhost, or open an .apkg with the installed Anki.
 ipcMain.handle('anki:connect', async (_e, body) => {
   try {

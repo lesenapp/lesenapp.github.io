@@ -54,5 +54,6 @@ module.exports = {
   lookup: async (word) => (await getDictionary()).lookup(word),
   wikipedia: async (query, lang) => (await getDictionary()).wikipedia(query, lang),
   translate: async (text) => (await getDictionary()).translate(text),
+  inflection: async (word) => (await getDictionary()).inflection(word),
   flush,
 };

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { LOOKUP_VERSION, firstGloss, lookupFields } from './words.js';
+import { LOOKUP_VERSION, firstGloss, lookupFields, lookupWord } from './words.js';
 
 const needsMeaning = (w) => !w.translation?.trim();
 const needsLookup = (w) => !w.isPhrase && w.looked !== LOOKUP_VERSION;
@@ -30,7 +30,7 @@ export function useMeaningFiller(words, setWords) {
           if (t?.text) patch.translation = t.text;
         }
         if (needsLookup(todo)) {
-          const d = await window.api.lookup(todo.word);
+          const d = await lookupWord(todo.word, todo.particle);
           if (d?.found) Object.assign(patch, lookupFields(d), { translation: firstGloss(d) });
         }
         if (needsContext(todo)) {

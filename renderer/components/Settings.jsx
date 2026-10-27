@@ -65,6 +65,20 @@ export default function Settings({ settings, setSettings, profile }) {
           <input type="checkbox" checked={settings.autoSave} onChange={(e) => set({ autoSave: e.target.checked })} />
         </div>
 
+        <div className="setting">
+          <div>
+            <b>Colour nouns by gender</b>
+            <p className="muted small">
+              <span className="gm">der</span> · <span className="gf">die</span> · <span className="gn">das</span>
+            </p>
+          </div>
+          <input
+            type="checkbox"
+            checked={settings.genderColors}
+            onChange={(e) => set({ genderColors: e.target.checked })}
+          />
+        </div>
+
         <div className="setting column">
           <div>
             <b>Anki deck</b>
@@ -97,9 +111,24 @@ export default function Settings({ settings, setSettings, profile }) {
                   : 'No German voice installed. Add one in Windows Settings → Time & language → Speech → Add voices → Deutsch.'}
             </p>
           </div>
-          <button className="btn" onClick={() => speak('Guten Morgen! Wie geht es dir?')}>
+          <button className="btn" onClick={() => speak('Guten Morgen! Wie geht es dir?', settings.speechRate)}>
             Test
           </button>
+        </div>
+
+        <div className="setting">
+          <div>
+            <b>Reading-aloud speed</b>
+            <p className="muted small">{settings.speechRate.toFixed(2)}×</p>
+          </div>
+          <input
+            type="range"
+            min="0.5"
+            max="1.3"
+            step="0.05"
+            value={settings.speechRate}
+            onChange={(e) => set({ speechRate: Number(e.target.value) })}
+          />
         </div>
       </section>
     </div>

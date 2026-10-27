@@ -74,6 +74,7 @@ export function installWebApi() {
     lookup: (word) => dictionary.lookup(word),
     wikipedia: (query, lang) => dictionary.wikipedia(query, lang),
     translate: (text) => dictionary.translate(text),
+    inflection: (word) => dictionary.inflection(word),
     // AnkiConnect (Anki desktop add-on) listens on this computer only; phones never reach it.
     // It answers 403 until this site is allowed (see requestAnkiPermission in lib/anki.js).
     ankiConnect: async (body) => {

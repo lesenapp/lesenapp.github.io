@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { LOOKUP_VERSION, articleOf, firstGloss, lookupFields } from '../lib/words.js';
+import { LOOKUP_VERSION, articleOf, firstGloss, lookupFields, lookupWord } from '../lib/words.js';
+import { prepositionCase } from '../lib/grammar.js';
 import { speak } from '../lib/speech.js';
 
 const enc = encodeURIComponent;
@@ -23,12 +24,12 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
 
   useEffect(() => {
     let alive = true;
-    const request = isWord ? window.api.lookup(sel.text) : window.api.translate(sel.text);
+    const request = isWord ? lookupWord(sel.text, sel.particle) : window.api.translate(sel.text);
     request.then((d) => alive && setData(d));
     return () => {
       alive = false;
     };
-  }, [isWord, sel.text]);
+  }, [isWord, sel.text, sel.particle]);
 
   // What a word is saved with: its first meaning plus base form and gender (for the article).
   const saveFields = () =>
@@ -51,13 +52,16 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
       if (settings.autoSave && sel.context) onPatch(saveFields());
       return;
     }
-    if (!record.translation?.trim() || record.looked !== LOOKUP_VERSION) {
-      onPatch({ ...lookupFields(data), ...(record.translation?.trim() ? {} : { translation: firstGloss(data) }) });
+    const separableChanged = Boolean(data.separable) && record.lemma !== data.lemma;
+    if (!record.translation?.trim() || record.looked !== LOOKUP_VERSION || separableChanged) {
+      const keepMeaning = record.translation?.trim() && !separableChanged;
+      onPatch({ ...lookupFields(data), ...(keepMeaning ? {} : { translation: firstGloss(data) }) });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
-  const lookupWord = isWord ? data?.lemma || sel.text : sel.text;
+  const term = isWord ? data?.lemma || sel.text : sel.text;
+  const caseHint = isWord ? prepositionCase(sel.text) : null;
   const article = isWord && data ? articleOf(data) : null;
   const isBaseForm = !data?.lemma || data.lemma.toLowerCase() === sel.text.toLowerCase();
 
@@ -67,6 +71,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         <div className="panel-word">
           {article && isBaseForm && <span className={`article g-${data.gender}`}>{article}</span>}
           <span className="word">{sel.text}</span>
+          {data?.separable && <span className="word particle"> … {data.separable.particle}</span>}
           {article && isBaseForm && data.plural && <span className="plural muted">, {data.plural}</span>}
         </div>
         <div className="row tight">
@@ -95,7 +100,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
 
       {isWord && !isBaseForm && (
         <div className="lemma">
-          Base form:{' '}
+          {data?.separable ? 'Separable verb:' : 'Base form:'}{' '}
           {article && <span className={`article g-${data.gender}`}>{article}</span>}{' '}
           <button className="link" onClick={() => onNavigate(data.lemma)}>
             {data.lemma}
@@ -103,6 +108,11 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         </div>
       )}
       {isWord && data?.ipa && <div className="ipa">{data.ipa}</div>}
+      {caseHint && (
+        <div className="lemma">
+          Preposition + <b>{caseHint}</b>
+        </div>
+      )}
 
       <button
         className={`save-btn ${record ? 'on' : ''}`}
@@ -151,19 +161,22 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
       <div className="tab-body">
         {tab === 'dict' &&
           (isWord ? (
-            <Definitions data={data} onPick={(t) => onPatch({ translation: t })} onNavigate={onNavigate} />
+            <>
+              {data?.found && <Forms word={term} />}
+              <Definitions data={data} onPick={(t) => onPatch({ translation: t })} onNavigate={onNavigate} />
+            </>
           ) : (
             <PhraseTranslation data={data} record={record} onPatch={onPatch} text={sel.text} />
           ))}
         {tab === 'google' && <GoogleTranslate text={sel.text} />}
-        {tab === 'dwds' && <Dwds word={lookupWord} />}
+        {tab === 'dwds' && <Dwds word={term} />}
         {tab === 'syn' && <Synonyms data={data} onNavigate={onNavigate} />}
-        {tab === 'wiki' && <Wikipedia query={lookupWord} />}
+        {tab === 'wiki' && <Wikipedia query={term} />}
         {tab === 'links' && (
           <ul className="links">
             {LINKS.map((l) => (
               <li key={l.name}>
-                <button className="link" onClick={() => window.api.openExternal(l.url(lookupWord))}>
+                <button className="link" onClick={() => window.api.openExternal(l.url(term))}>
                   {l.name} ↗
                 </button>
               </li>
@@ -183,6 +196,95 @@ function Loading() {
       <div />
     </div>
   );
+}
+
+// Conjugation, declension or comparison from German Wiktionary, shown above the meanings.
+const DECLENSION = {
+  m: ['der', 'des', 'dem', 'den'],
+  f: ['die', 'der', 'der', 'die'],
+  n: ['das', 'des', 'dem', 'das'],
+  p: ['die', 'der', 'den', 'die'],
+};
+const CASE_NAMES = ['Nominativ', 'Genitiv', 'Dativ', 'Akkusativ'];
+
+function Forms({ word }) {
+  const [inf, setInf] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    setInf(null);
+    window.api.inflection(word).then((d) => alive && setInf(d));
+    return () => {
+      alive = false;
+    };
+  }, [word]);
+
+  if (!inf?.kind) return null;
+  const f = inf.forms;
+
+  if (inf.kind === 'Verb') {
+    const aux = f.Hilfsverb === 'sein' ? 'ist' : f.Hilfsverb?.includes('sein') ? 'hat/ist' : 'hat';
+    const rows = [
+      ['ich', f['Präsens_ich']],
+      ['du', f['Präsens_du']],
+      ['er/sie/es', f['Präsens_er, sie, es']],
+      ['Präteritum', f['Präteritum_ich']],
+      ['Perfekt', f['Partizip II'] && `${aux} ${f['Partizip II']}`],
+      ['Konjunktiv II', f['Konjunktiv II_ich']],
+      ['Imperativ', [f['Imperativ Singular'], f['Imperativ Plural']].filter(Boolean).join(' / ')],
+    ].filter(([, v]) => v);
+    return (
+      <table className="forms">
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k}>
+              <th>{k}</th>
+              <td>{v}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  if (inf.kind === 'Substantiv') {
+    const g = f.Genus?.[0];
+    const singular = DECLENSION[g] && f['Nominativ Singular'];
+    const plural = f['Nominativ Plural'];
+    if (!singular && !plural) return null;
+    return (
+      <table className="forms">
+        <thead>
+          <tr>
+            <th />
+            {singular && <th>Singular</th>}
+            {plural && <th>Plural</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {CASE_NAMES.map((c, i) => (
+            <tr key={c}>
+              <th>{c.slice(0, 3)}.</th>
+              {singular && (
+                <td>
+                  <span className="muted">{DECLENSION[g][i]}</span> {f[`${c} Singular`]}
+                </td>
+              )}
+              {plural && (
+                <td>
+                  <span className="muted">{DECLENSION.p[i]}</span> {f[`${c} Plural`]}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  const rows = [f.Positiv, f.Komparativ, f.Superlativ && `am ${f.Superlativ}`].filter(Boolean);
+  if (rows.length < 2) return null;
+  return <p className="forms-line">{rows.join(' · ')}</p>;
 }
 
 function Definitions({ data, onPick, onNavigate }) {

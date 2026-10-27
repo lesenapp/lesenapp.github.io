@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { countWords } from '../lib/text.js';
+import { readEpub } from '../lib/epub.js';
 import { useBackButton } from '../lib/useBackButton.js';
 
 const SAMPLE = {
@@ -11,7 +12,15 @@ Heute hat sie viel vor. Zuerst möchte sie auf den Markt gehen, um frisches Obst
 Der Himmel ist grau, aber Anna lässt sich die Laune nicht verderben. Sie nimmt ihren Regenschirm, zieht die Jacke an und geht die Treppe hinunter. Auf der Straße riecht es nach frischen Brötchen.`,
 };
 
-export default function Library({ texts, setTexts, words, onOpen }) {
+// Free German texts, easy to hard.
+const SOURCES = [
+  { name: 'nachrichtenleicht.de', note: 'A2', url: 'https://www.nachrichtenleicht.de' },
+  { name: 'DW Top-Thema', note: 'B1', url: 'https://learngerman.dw.com/de/top-thema/s-55801700' },
+  { name: 'Langsam gesprochene Nachrichten', note: 'B2', url: 'https://learngerman.dw.com/de/langsam-gesprochene-nachrichten/s-60040332' },
+  { name: 'Projekt Gutenberg', note: 'books', url: 'https://www.projekt-gutenberg.org' },
+];
+
+export default function Library({ texts, setTexts, words, reading, onOpen }) {
   const [editing, setEditing] = useState(null);
   useBackButton(Boolean(editing), () => setEditing(null));
 
@@ -28,7 +37,10 @@ export default function Library({ texts, setTexts, words, onOpen }) {
       <header className="view-head">
         <div>
           <h1>Library</h1>
-          <p className="muted">Your German texts. Paste anything — articles, chapters, song lyrics.</p>
+          <p className="muted">
+            {reading.today.toLocaleString()} words read today
+            {reading.streak > 1 && ` · 🔥 ${reading.streak} days in a row`}
+          </p>
         </div>
         <button className="btn primary" onClick={() => setEditing({ title: '', content: '' })}>
           + New text
@@ -66,6 +78,15 @@ export default function Library({ texts, setTexts, words, onOpen }) {
         ))}
       </div>
 
+      <footer className="sources">
+        <span className="muted small">Find texts</span>
+        {SOURCES.map((s) => (
+          <button key={s.url} className="chip" onClick={() => window.api.openExternal(s.url)}>
+            {s.name} <span className="muted">· {s.note}</span>
+          </button>
+        ))}
+      </footer>
+
       {editing && <TextEditor draft={editing} onSave={save} onCancel={() => setEditing(null)} />}
     </div>
   );
@@ -100,12 +121,26 @@ function TextEditor({ draft, onSave, onCancel }) {
   const [title, setTitle] = useState(draft.title);
   const [content, setContent] = useState(draft.content);
   const fileRef = useRef();
+  const [fileError, setFileError] = useState('');
 
   const loadFile = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    setContent(await file.text());
-    if (!title) setTitle(file.name.replace(/\.[^.]+$/, ''));
+    setFileError('');
+    const name = file.name.replace(/\.[^.]+$/, '');
+    try {
+      if (/\.epub$/i.test(file.name)) {
+        const book = readEpub(await file.arrayBuffer());
+        setContent(book.content);
+        if (!title) setTitle(book.title || name);
+        return;
+      }
+      setContent(await file.text());
+      if (!title) setTitle(name);
+    } catch (err) {
+      setFileError(err.message);
+    }
   };
 
   return (
@@ -121,10 +156,11 @@ function TextEditor({ draft, onSave, onCancel }) {
         />
         <div className="row spread">
           <div>
-            <input ref={fileRef} type="file" accept=".txt,.md,.srt" hidden onChange={loadFile} />
+            <input ref={fileRef} type="file" accept=".txt,.md,.srt,.epub" hidden onChange={loadFile} />
             <button className="btn" onClick={() => fileRef.current.click()}>
-              Load .txt file
+              Open file (.txt, .epub)
             </button>
+            {fileError && <span className="error small"> {fileError}</span>}
           </div>
           <div className="row">
             <button className="btn" onClick={onCancel}>

@@ -10,6 +10,10 @@
   --new: rgba(56, 132, 255, 0.2);
   --new-solid: #3884ff;
   --lv1: rgba(245, 190, 30, 0.55);
+  --der: #2563eb;
+  --die: #db2777;
+  --das: #16a34a;
+  --speaking: rgba(56, 132, 255, 0.16);
   --lv2: rgba(245, 190, 30, 0.38);
   --lv3: rgba(245, 190, 30, 0.22);
   --lv4: rgba(245, 190, 30, 0.1);
@@ -33,6 +37,10 @@
   --new: rgba(96, 156, 255, 0.24);
   --new-solid: #609cff;
   --lv1: rgba(250, 200, 50, 0.4);
+  --der: #7aa7ff;
+  --die: #f472b6;
+  --das: #4ade80;
+  --speaking: rgba(96, 156, 255, 0.22);
   --lv2: rgba(250, 200, 50, 0.28);
   --lv3: rgba(250, 200, 50, 0.17);
   --lv4: rgba(250, 200, 50, 0.08);
@@ -1408,4 +1416,85 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fff;
+}
+
+/* ---------- noun genders, reading aloud, word forms ---------- */
+
+.w.gm,
+.gm {
+  color: var(--der);
+}
+
+.w.gf,
+.gf {
+  color: var(--die);
+}
+
+.w.gn,
+.gn {
+  color: var(--das);
+}
+
+.w.speaking {
+  background: var(--speaking);
+}
+
+.w.saved.speaking {
+  background: var(--lv1);
+  box-shadow: 0 2px 0 var(--new-solid);
+}
+
+.listen {
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.listen.on {
+  background: var(--accent-soft);
+}
+
+.panel-word .particle {
+  color: var(--muted);
+}
+
+.forms {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 2px 0 14px;
+}
+
+.forms th,
+.forms td {
+  text-align: left;
+  padding: 4px 8px 4px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.forms th {
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  width: 1%;
+}
+
+.forms thead th {
+  font-size: 12px;
+  width: auto;
+}
+
+.forms-line {
+  margin: 2px 0 14px;
+  font-size: 14px;
+}
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }

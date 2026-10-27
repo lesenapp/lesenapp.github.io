@@ -3,6 +3,7 @@
 //  - OpenThesaurus: German synonym groups
 //  - Wikipedia (de/en): article summaries
 //  - MyMemory: phrase and sentence translation
+//  - German Wiktionary: conjugation and declension tables
 // All of these services allow browser (CORS) requests.
 //
 // createDictionary({ fetch, cache }) — `fetch` is a fetch-compatible function and
@@ -22,7 +23,11 @@ function decode(s) {
 const INFLECTION =
   /\b(singular|plural|nominative|accusative|dative|genitive|inflection|inflected|participle|preterite|past|present|imperative|subjunctive|infinitive|comparative|superlative|person|form|alternative|spelling|obsolete|archaic)\b/i;
 
-const stripHtml = (html) => decode(html.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
+// A whole definition line that only names a grammatical form ("first/third-person singular subjunctive I").
+const INFLECTION_LINE =
+  /^((first|second|third|first\/third)[- ]person|singular|plural|nominative|accusative|dative|genitive|past|present|imperative|subjunctive|participle|gerund|strong|weak|mixed|positive|comparative|superlative)\b[\w\s/,-]*$/i;
+
+const stripHtml =(html) => decode(html.replace(/<[^>]+>/g, '')).replace(/\s+/g, ' ').trim();
 const unique = (list) => [...new Set(list)];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -124,7 +129,11 @@ export function createDictionary({ fetch, cache }) {
             const link = d.definition.match(/form-of-definition-link[\s\S]*?<a[^>]*title="([^"#]+)/);
             const formOf = link ? stripHtml(link[1]) : null;
             // "plural of Haus" is an inflection; "agent noun of lehren: teacher" is a word of its own.
-            const inflection = Boolean(formOf) && INFLECTION.test(stripHtml(d.definition).split(/\bof\b/)[0]);
+            // "inflection of rufen:" lists its forms as separate lines ("singular imperative")
+            // without a link; those are inflections of the same verb.
+            const inflection = formOf
+              ? INFLECTION.test(stripHtml(d.definition).split(/\bof\b/)[0])
+              : lemmas.size > 0 && INFLECTION_LINE.test(stripHtml(d.definition));
             if (inflection) lemmas.add(formOf);
             const examples = (d.parsedExamples || [])
               .map((e) => [e.example, e.translation].filter(Boolean).map(stripHtml).join(' — '))
@@ -187,7 +196,7 @@ export function createDictionary({ fetch, cache }) {
   async function lookup(word) {
     const query = String(word || '').trim();
     if (!query) return { query, found: false, entries: [] };
-    const key = `lk3:${query}`; // bumped whenever the result shape changes
+    const key = `lk4:${query}`; // bumped whenever the result shape changes
     const cached = await cache.get(key);
     if (cached) return cached;
 
@@ -272,6 +281,36 @@ export function createDictionary({ fetch, cache }) {
     }
   }
 
+  // ---------- Inflection (German Wiktionary) ----------
+
+  // The "Übersicht" table of a German Wiktionary entry: conjugation for verbs, the four cases
+  // for nouns, comparison for adjectives. { kind: 'Verb' | 'Substantiv' | 'Adjektiv', forms }.
+  async function inflection(word) {
+    const title = String(word || '').trim();
+    if (!title) return { kind: null };
+    const key = `inf1:${title}`;
+    const cached = await cache.get(key);
+    if (cached) return cached;
+    try {
+      const data = await getJson(
+        `https://de.wiktionary.org/w/api.php?action=parse&format=json&formatversion=2&prop=wikitext&redirects=1&origin=*&page=${encodeURIComponent(title)}`
+      );
+      const text = data?.parse?.wikitext ?? '';
+      const m = text.match(/\{\{Deutsch (Verb|Substantiv|Adjektiv) Übersicht\s*\n([\s\S]*?)\n\}\}/);
+      if (!m) return remember(key, { kind: null });
+      const forms = {};
+      for (const line of m[2].split('\n')) {
+        const p = line.match(/^\|\s*([^=]+?)\s*=(.*)$/);
+        if (!p || p[1] in forms || /^Bild/.test(p[1])) continue;
+        const value = p[2].replace(/<[^>]*>|\[\[|\]\]|'''?/g, '').trim();
+        if (value && value !== '—') forms[p[1]] = value;
+      }
+      return remember(key, { kind: m[1], forms });
+    } catch (e) {
+      return { kind: null, error: e.message };
+    }
+  }
+
   // ---------- Phrase translation ----------
 
   // MyMemory: free, no key.
@@ -289,5 +328,5 @@ export function createDictionary({ fetch, cache }) {
     }
   }
 
-  return { lookup, wikipedia, translate };
+  return { lookup, wikipedia, translate, inflection };
 }

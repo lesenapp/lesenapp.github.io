@@ -4,6 +4,8 @@ import { useMeaningFiller } from './lib/useMeaningFiller.js';
 import { useBackButton } from './lib/useBackButton.js';
 import { isLegacyUnsaved } from './lib/words.js';
 import { pendingForAnki } from './lib/anki.js';
+import { loadPlace, savePlace } from './lib/lastPlace.js';
+import { readingSummary, recordReading } from './lib/stats.js';
 import ProfilePicker from './components/ProfilePicker.jsx';
 import Library from './components/Library.jsx';
 import Reader from './components/Reader.jsx';
@@ -16,14 +18,22 @@ export const DEFAULT_SETTINGS = {
   wordsPerPage: 250,
   autoSave: true,
   ankiDeck: 'Lesen',
+  genderColors: true,
+  speechRate: 0.9,
 };
+
+const VIEWS = ['library', 'reader', 'vocabulary', 'settings'];
 
 export default function App() {
   const [profiles, setProfiles] = useState(null);
   const [active, setActive] = useState(null);
 
   useEffect(() => {
-    window.api.listProfiles().then(setProfiles);
+    window.api.listProfiles().then((list) => {
+      setProfiles(list);
+      const last = list.find((p) => p.id === loadPlace().profileId);
+      if (last) setActive(last);
+    });
   }, []);
 
   if (!profiles) return null;
@@ -31,7 +41,10 @@ export default function App() {
     return (
       <ProfilePicker
         profiles={profiles}
-        onPick={setActive}
+        onPick={(p) => {
+          savePlace({ profileId: p.id });
+          setActive(p);
+        }}
         onChange={(list) => {
           setProfiles(list);
           window.api.saveProfiles(list);
@@ -39,7 +52,16 @@ export default function App() {
       />
     );
   }
-  return <Workspace key={active.id} profile={active} onSwitch={() => setActive(null)} />;
+  return (
+    <Workspace
+      key={active.id}
+      profile={active}
+      onSwitch={() => {
+        savePlace(null);
+        setActive(null);
+      }}
+    />
+  );
 }
 
 const NAV = [
@@ -53,8 +75,12 @@ function Workspace({ profile, onSwitch }) {
   const [texts, setTexts] = usePersisted(profile.id, 'texts', []);
   const [words, setWords] = usePersisted(profile.id, 'words', {});
   const [storedSettings, setSettings] = usePersisted(profile.id, 'settings', DEFAULT_SETTINGS);
-  const [view, setView] = useState('library');
-  const [openTextId, setOpenTextId] = useState(null);
+  const [reading, setReading] = usePersisted(profile.id, 'stats', {});
+  const [place] = useState(loadPlace);
+  const [view, setView] = useState(() => (VIEWS.includes(place.view) ? place.view : 'library'));
+  const [openTextId, setOpenTextId] = useState(place.textId ?? null);
+
+  useEffect(() => savePlace({ profileId: profile.id, view, textId: openTextId }), [profile.id, view, openTextId]);
 
   const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...storedSettings }), [storedSettings]);
   useMeaningFiller(words, setWords);
@@ -86,9 +112,11 @@ function Workspace({ profile, onSwitch }) {
     };
   }, [words]);
 
-  if (!texts || !words || !storedSettings) return <div className="loading">Loading…</div>;
+  if (!texts || !words || !storedSettings || !reading) return <div className="loading">Loading…</div>;
 
   const openText = texts.find((t) => t.id === openTextId);
+  // A reload into a text that no longer exists lands in the Library.
+  const current = view === 'reader' && !openText ? 'library' : view;
   const open = (id) => {
     setOpenTextId(id);
     setView('reader');
@@ -104,7 +132,7 @@ function Workspace({ profile, onSwitch }) {
           {NAV.map((n) => (
             <button
               key={n.id}
-              className={`nav-item ${view === n.id ? 'active' : ''}`}
+              className={`nav-item ${current === n.id ? 'active' : ''}`}
               onClick={() => setView(n.id)}
               disabled={n.id === 'reader' && !openText}
             >
@@ -133,10 +161,10 @@ function Workspace({ profile, onSwitch }) {
       </aside>
 
       <main className="main">
-        {view === 'library' && (
-          <Library texts={texts} setTexts={setTexts} words={words} onOpen={open} />
+        {current === 'library' && (
+          <Library texts={texts} setTexts={setTexts} words={words} reading={readingSummary(reading)} onOpen={open} />
         )}
-        {view === 'reader' && openText && (
+        {current === 'reader' && (
           <Reader
             key={openText.id}
             text={openText}
@@ -144,6 +172,7 @@ function Workspace({ profile, onSwitch }) {
             setWords={setWords}
             settings={settings}
             onUpdateText={(patch) => updateText(openText.id, patch)}
+            onRead={(key, count) => setReading((r) => recordReading(r, key, count))}
             onBack={() => setView('library')}
           />
         )}

@@ -55,3 +55,12 @@ export function sentenceAround(text, start, end) {
 export function countWords(content) {
   return (content.match(WORD_RE) || []).filter((w) => !NUMBER_RE.test(w)).length;
 }
+
+// Sentence ranges [start, end) within a paragraph, for reading aloud.
+export function sentenceRanges(text) {
+  const out = [];
+  for (const m of text.matchAll(/[^.!?…]+(?:[.!?…]+["“”»«']*|$)\s*/g)) {
+    if (m[0].trim()) out.push({ start: m.index, end: m.index + m[0].trimEnd().length });
+  }
+  return out.length ? out : [{ start: 0, end: text.length }];
+}
