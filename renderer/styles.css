@@ -1395,13 +1395,27 @@ body {
   font-size: 20px;
 }
 
+/* Panel parts never shrink: a long dictionary entry scrolls the panel instead of squeezing
+   the tab bar away. The tab bar stays pinned to the top while the panel scrolls, and wraps
+   onto a second line instead of hiding tabs off to the side. */
+.panel > * {
+  flex-shrink: 0;
+}
+
 .tabs {
-  overflow-x: auto;
-  scrollbar-width: none;
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  flex-wrap: wrap;
+  gap: 0 2px;
+  margin: 6px -20px 0;
+  padding: 0 14px;
+  background: var(--surface);
 }
 
 .tab {
   white-space: nowrap;
+  padding: 9px 8px;
 }
 
 .embed {
@@ -1497,4 +1511,21 @@ body {
   margin-top: 28px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+}
+
+@media (max-width: 760px) {
+  .tabs {
+    top: -14px;
+    margin: 6px -16px 0;
+    padding: 0 10px;
+  }
+
+  .tab {
+    padding: 10px 8px;
+  }
+
+  /* Embedded pages fit inside the bottom sheet, so the sheet itself never has to scroll past them. */
+  .embed iframe {
+    height: max(260px, calc(62vh - 190px));
+  }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LOOKUP_VERSION, articleOf, firstGloss, lookupFields, lookupWord } from '../lib/words.js';
 import { prepositionCase } from '../lib/grammar.js';
 import { speak } from '../lib/speech.js';
@@ -19,8 +19,21 @@ const LINKS = [
 
 export default function WordPanel({ sel, record, settings, onPatch, onNavigate, onClose }) {
   const [data, setData] = useState(null);
-  const [tab, setTab] = useState('dict');
+  const [tab, setTabState] = useState('dict');
   const isWord = sel.kind === 'word';
+  const panelRef = useRef();
+  const tabsRef = useRef();
+
+  // A new tab starts at its top: if the panel was scrolled past the (pinned) tab bar, scroll
+  // back to where the tab bar sits in the panel.
+  const setTab = (id) => {
+    setTabState(id);
+    const panel = panelRef.current;
+    const anchor = tabsRef.current?.previousElementSibling;
+    if (!panel || !anchor) return;
+    const below = anchor.getBoundingClientRect().bottom - panel.getBoundingClientRect().top;
+    if (below < 0) panel.scrollTop += below;
+  };
 
   useEffect(() => {
     let alive = true;
@@ -66,7 +79,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
   const isBaseForm = !data?.lemma || data.lemma.toLowerCase() === sel.text.toLowerCase();
 
   return (
-    <aside className="panel">
+    <aside className="panel" ref={panelRef}>
       <div className="panel-head">
         <div className="panel-word">
           {article && isBaseForm && <span className={`article g-${data.gender}`}>{article}</span>}
@@ -141,7 +154,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         />
       </label>
 
-      <div className="tabs">
+      <div className="tabs" ref={tabsRef}>
         {[
           ['dict', isWord ? 'Dictionary' : 'Translation'],
           ['google', 'Google'],
