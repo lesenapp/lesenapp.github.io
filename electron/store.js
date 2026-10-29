@@ -4,7 +4,9 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 
-const COLLECTIONS = new Set(['texts', 'words', 'settings']);
+// Each collection, and its English-profile twin ("en-texts" …).
+const BASE_COLLECTIONS = ['texts', 'words', 'settings', 'stats'];
+const COLLECTIONS = new Set([...BASE_COLLECTIONS, ...BASE_COLLECTIONS.map((n) => `en-${n}`)]);
 const pending = new Map();
 let timer = null;
 
