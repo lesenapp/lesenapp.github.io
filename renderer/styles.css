@@ -838,6 +838,7 @@ kbd {
   text-align: left;
   border-radius: 6px;
   transition: background 0.15s;
+  vertical-align: top;
 }
 
 .def:hover {
@@ -1424,7 +1425,8 @@ body {
   gap: 6px;
 }
 
-.embed iframe {
+.embed iframe,
+.embed webview {
   width: 100%;
   height: max(420px, calc(100vh - 460px));
   border: 1px solid var(--border);
@@ -1528,4 +1530,54 @@ body {
   .embed iframe {
     height: max(260px, calc(62vh - 190px));
   }
+}
+
+.lang-seg {
+  margin: 18px 0 4px;
+}
+
+.lang-seg button {
+  padding: 7px 20px;
+  font-weight: 600;
+}
+
+.brand-lang {
+  margin-left: 8px;
+  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted) !important;
+  vertical-align: middle;
+}
+
+.ipa {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.accent-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.accent-btn:hover {
+  background: var(--surface-2);
+}
+
+.dict-buttons {
+  display: grid;
+  gap: 8px;
+}
+
+.dict-buttons .btn {
+  justify-content: flex-start;
+  text-align: left;
 }

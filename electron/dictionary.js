@@ -51,9 +51,9 @@ async function getDictionary() {
 }
 
 module.exports = {
-  lookup: async (word) => (await getDictionary()).lookup(word),
+  lookup: async (word, lang) => (await getDictionary()).lookup(word, lang),
   wikipedia: async (query, lang) => (await getDictionary()).wikipedia(query, lang),
-  translate: async (text) => (await getDictionary()).translate(text),
-  inflection: async (word) => (await getDictionary()).inflection(word),
+  translate: async (text, lang) => (await getDictionary()).translate(text, lang),
+  inflection: async (word, lang) => (await getDictionary()).inflection(word, lang),
   flush,
 };

@@ -6,6 +6,7 @@ import { isLegacyUnsaved } from './lib/words.js';
 import { pendingForAnki } from './lib/anki.js';
 import { loadPlace, savePlace } from './lib/lastPlace.js';
 import { readingSummary, recordReading } from './lib/stats.js';
+import { languageOf } from './lib/language.js';
 import ProfilePicker from './components/ProfilePicker.jsx';
 import Library from './components/Library.jsx';
 import Reader from './components/Reader.jsx';
@@ -20,13 +21,18 @@ export const DEFAULT_SETTINGS = {
   ankiDeck: 'Lesen',
   genderColors: true,
   speechRate: 0.9,
+  accent: 'uk',
 };
+
+// Settings of a new profile in a language (its own Anki deck).
+const defaultsFor = (lang) => ({ ...DEFAULT_SETTINGS, ankiDeck: languageOf(lang).ankiDeck });
 
 const VIEWS = ['library', 'reader', 'vocabulary', 'settings'];
 
 export default function App() {
   const [profiles, setProfiles] = useState(null);
   const [active, setActive] = useState(null);
+  const [lang, setLang] = useState(() => languageOf(loadPlace().lang).code);
 
   useEffect(() => {
     window.api.listProfiles().then((list) => {
@@ -41,8 +47,13 @@ export default function App() {
     return (
       <ProfilePicker
         profiles={profiles}
+        lang={lang}
+        onLang={(l) => {
+          setLang(l);
+          savePlace({ lang: l });
+        }}
         onPick={(p) => {
-          savePlace({ profileId: p.id });
+          savePlace({ profileId: p.id, lang });
           setActive(p);
         }}
         onChange={(list) => {
@@ -54,10 +65,11 @@ export default function App() {
   }
   return (
     <Workspace
-      key={active.id}
+      key={`${active.id}:${lang}`}
       profile={active}
+      lang={lang}
       onSwitch={() => {
-        savePlace(null);
+        savePlace({ lang });
         setActive(null);
       }}
     />
@@ -71,19 +83,21 @@ const NAV = [
   { id: 'settings', label: 'Settings', icon: '⚙' },
 ];
 
-function Workspace({ profile, onSwitch }) {
-  const [texts, setTexts] = usePersisted(profile.id, 'texts', []);
-  const [words, setWords] = usePersisted(profile.id, 'words', {});
-  const [storedSettings, setSettings] = usePersisted(profile.id, 'settings', DEFAULT_SETTINGS);
-  const [reading, setReading] = usePersisted(profile.id, 'stats', {});
+function Workspace({ profile, lang, onSwitch }) {
+  // German data keeps its original names; English lives next to it as "en-texts", ….
+  const { prefix } = languageOf(lang);
+  const [texts, setTexts] = usePersisted(profile.id, prefix + 'texts', []);
+  const [words, setWords] = usePersisted(profile.id, prefix + 'words', {});
+  const [storedSettings, setSettings] = usePersisted(profile.id, prefix + 'settings', defaultsFor(lang));
+  const [reading, setReading] = usePersisted(profile.id, prefix + 'stats', {});
   const [place] = useState(loadPlace);
   const [view, setView] = useState(() => (VIEWS.includes(place.view) ? place.view : 'library'));
   const [openTextId, setOpenTextId] = useState(place.textId ?? null);
 
-  useEffect(() => savePlace({ profileId: profile.id, view, textId: openTextId }), [profile.id, view, openTextId]);
+  useEffect(() => savePlace({ profileId: profile.id, lang, view, textId: openTextId }), [profile.id, lang, view, openTextId]);
 
-  const settings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...storedSettings }), [storedSettings]);
-  useMeaningFiller(words, setWords);
+  const settings = useMemo(() => ({ ...defaultsFor(lang), ...storedSettings }), [storedSettings, lang]);
+  useMeaningFiller(words, setWords, lang);
   useBackButton(view !== 'library', () => setView('library'));
 
   // Drop the "known"/"ignored" entries older versions created; they were never saved words.
@@ -127,6 +141,7 @@ function Workspace({ profile, onSwitch }) {
       <aside className="sidebar">
         <div className="brand">
           Lesen<span>.</span>
+          <span className="brand-lang">{languageOf(lang).name}</span>
         </div>
         <nav>
           {NAV.map((n) => (
@@ -162,12 +177,13 @@ function Workspace({ profile, onSwitch }) {
 
       <main className="main">
         {current === 'library' && (
-          <Library texts={texts} setTexts={setTexts} words={words} reading={readingSummary(reading)} onOpen={open} />
+          <Library lang={lang} texts={texts} setTexts={setTexts} words={words} reading={readingSummary(reading)} onOpen={open} />
         )}
         {current === 'reader' && (
           <Reader
             key={openText.id}
             text={openText}
+            lang={lang}
             words={words}
             setWords={setWords}
             settings={settings}
@@ -177,10 +193,10 @@ function Workspace({ profile, onSwitch }) {
           />
         )}
         {view === 'vocabulary' && (
-          <Vocabulary words={words} setWords={setWords} texts={texts} settings={settings} onOpen={open} />
+          <Vocabulary lang={lang} words={words} setWords={setWords} texts={texts} settings={settings} onOpen={open} />
         )}
         {view === 'settings' && (
-          <Settings settings={settings} setSettings={setSettings} profile={profile} />
+          <Settings lang={lang} settings={settings} setSettings={setSettings} profile={profile} />
         )}
       </main>
     </div>

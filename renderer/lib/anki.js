@@ -84,7 +84,7 @@ async function loadSqlite() {
   return initSqlJs({ wasmBinary });
 }
 
-export async function buildApkg(list, deckName) {
+export async function buildApkg(list, deckName, lang = 'de') {
   const SQL = await loadSqlite();
   const db = new SQL.Database();
   db.run(SCHEMA);
@@ -177,7 +177,9 @@ export async function buildApkg(list, deckName) {
     const fields = ankiFields(w);
     const sortField = fields[0].replace(/<[^>]+>/g, '');
     const csum = parseInt((await sha1Hex(sortField)).slice(0, 8), 16);
-    const guid = `lesen-${(await sha1Hex(w.key)).slice(0, 16)}`;
+    // German GUIDs stay as they always were; English words get their own, so the same
+    // spelling in both languages never updates the other language's note.
+    const guid = `lesen-${lang === 'en' ? 'en-' : ''}${(await sha1Hex(w.key)).slice(0, 16)}`;
     const mod = Math.floor((w.updated || now) / 1000);
     db.run('INSERT INTO notes VALUES (?, ?, ?, ?, -1, ?, ?, ?, ?, 0, ?)', [
       nid,

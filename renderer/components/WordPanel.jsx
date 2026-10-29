@@ -1,23 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { LOOKUP_VERSION, articleOf, firstGloss, lookupFields, lookupWord } from '../lib/words.js';
 import { prepositionCase } from '../lib/grammar.js';
-import { speak } from '../lib/speech.js';
+import { playAudio, speak } from '../lib/speech.js';
+import { languageOf } from '../lib/language.js';
 
-const enc = encodeURIComponent;
-const LINKS = [
-  { name: 'Google Translate', url: (w) => `https://translate.google.com/?sl=de&tl=en&op=translate&text=${enc(w)}` },
-  { name: 'Cambridge (German–English)', url: (w) => `https://dictionary.cambridge.org/dictionary/german-english/${enc(w)}` },
-  { name: 'Collins (German–English)', url: (w) => `https://www.collinsdictionary.com/dictionary/german-english/${enc(w)}` },
-  { name: 'Wiktionary', url: (w) => `https://en.wiktionary.org/wiki/${enc(w)}#German` },
-  { name: 'DWDS (German, with corpus examples)', url: (w) => `https://www.dwds.de/wb/${enc(w)}` },
-  { name: 'Duden', url: (w) => `https://www.duden.de/suchen/dudenonline/${enc(w)}` },
-  { name: 'Linguee (in context)', url: (w) => `https://www.linguee.com/german-english/search?query=${enc(w)}` },
-  { name: 'Reverso Context', url: (w) => `https://context.reverso.net/translation/german-english/${enc(w)}` },
-  { name: 'dict.cc', url: (w) => `https://www.dict.cc/?s=${enc(w)}` },
-  { name: 'Forvo (pronunciation)', url: (w) => `https://forvo.com/word/${enc(w)}/#de` },
-];
-
-export default function WordPanel({ sel, record, settings, onPatch, onNavigate, onClose }) {
+export default function WordPanel({ sel, lang = 'de', record, settings, onPatch, onNavigate, onClose }) {
+  const language = languageOf(lang);
   const [data, setData] = useState(null);
   const [tab, setTabState] = useState('dict');
   const isWord = sel.kind === 'word';
@@ -37,12 +25,14 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
 
   useEffect(() => {
     let alive = true;
-    const request = isWord ? lookupWord(sel.text, sel.particle) : window.api.translate(sel.text);
+    const request = isWord
+      ? lookupWord(sel.text, sel.particle, lang, sel.weak)
+      : window.api.translate(sel.text, lang);
     request.then((d) => alive && setData(d));
     return () => {
       alive = false;
     };
-  }, [isWord, sel.text, sel.particle]);
+  }, [isWord, sel.text, sel.particle, sel.weak, lang]);
 
   // What a word is saved with: its first meaning plus base form and gender (for the article).
   const saveFields = () =>
@@ -74,7 +64,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
   }, [data]);
 
   const term = isWord ? data?.lemma || sel.text : sel.text;
-  const caseHint = isWord ? prepositionCase(sel.text) : null;
+  const caseHint = isWord && lang === 'de' ? prepositionCase(sel.text) : null;
   const article = isWord && data ? articleOf(data) : null;
   const isBaseForm = !data?.lemma || data.lemma.toLowerCase() === sel.text.toLowerCase();
 
@@ -95,7 +85,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
           >
             G
           </button>
-          <button className="icon-btn" title="Listen" onClick={() => speak(sel.text)}>
+          <button className="icon-btn" title="Listen" onClick={() => speak(sel.text, 0.9, language.speech(settings))}>
             🔊
           </button>
           <button
@@ -113,14 +103,34 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
 
       {isWord && !isBaseForm && (
         <div className="lemma">
-          {data?.separable ? 'Separable verb:' : 'Base form:'}{' '}
+          {data?.separable ? (lang === 'en' ? 'Phrasal verb:' : 'Separable verb:') : 'Base form:'}{' '}
           {article && <span className={`article g-${data.gender}`}>{article}</span>}{' '}
           <button className="link" onClick={() => onNavigate(data.lemma)}>
             {data.lemma}
           </button>
         </div>
       )}
-      {isWord && data?.ipa && <div className="ipa">{data.ipa}</div>}
+      {isWord && data?.phrasal && (
+        <div className="lemma">
+          Phrasal verb:{' '}
+          <button className="link" onClick={() => onNavigate(data.phrasal)}>
+            {data.phrasal}
+          </button>
+        </div>
+      )}
+      {isWord && (data?.ipa || data?.audio?.uk || data?.audio?.us) && (
+        <div className="ipa">
+          {data.ipa}
+          {['uk', 'us'].map(
+            (a) =>
+              data.audio?.[a] && (
+                <button key={a} className="accent-btn" title={`${a.toUpperCase()} pronunciation`} onClick={() => playAudio(data.audio[a].audio)}>
+                  🔊 {a.toUpperCase()}
+                </button>
+              )
+          )}
+        </div>
+      )}
       {caseHint && (
         <div className="lemma">
           Preposition + <b>{caseHint}</b>
@@ -149,7 +159,7 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         <textarea
           className="input note"
           value={record?.note ?? ''}
-          placeholder="Anything to remember (gender, plural, example…)"
+          placeholder={`Anything to remember (${lang === 'en' ? 'usage, example' : 'gender, plural, example'}…)`}
           onChange={(e) => onPatch({ note: e.target.value })}
         />
       </label>
@@ -158,12 +168,12 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         {[
           ['dict', isWord ? 'Dictionary' : 'Translation'],
           ['google', 'Google'],
-          ['dwds', 'DWDS'],
+          ['embed', language.embed.label],
           ['syn', 'Synonyms'],
           ['wiki', 'Wikipedia'],
           ['links', 'More'],
         ]
-          .filter(([id]) => isWord || (id !== 'syn' && id !== 'google' && id !== 'dwds'))
+          .filter(([id]) => isWord || (id !== 'syn' && id !== 'google' && id !== 'embed'))
           .map(([id, label]) => (
             <button key={id} className={`tab ${tab === id ? 'on' : ''}`} onClick={() => setTab(id)}>
               {label}
@@ -175,19 +185,19 @@ export default function WordPanel({ sel, record, settings, onPatch, onNavigate, 
         {tab === 'dict' &&
           (isWord ? (
             <>
-              {data?.found && <Forms word={term} />}
+              {data?.found && <Forms word={term} lang={lang} pos={data.entries[0]?.pos} />}
               <Definitions data={data} onPick={(t) => onPatch({ translation: t })} onNavigate={onNavigate} />
             </>
           ) : (
-            <PhraseTranslation data={data} record={record} onPatch={onPatch} text={sel.text} />
+            <PhraseTranslation data={data} text={sel.text} language={language} />
           ))}
-        {tab === 'google' && <GoogleTranslate text={sel.text} />}
-        {tab === 'dwds' && <Dwds word={term} />}
-        {tab === 'syn' && <Synonyms data={data} onNavigate={onNavigate} />}
-        {tab === 'wiki' && <Wikipedia query={term} />}
+        {tab === 'google' && <GoogleTranslate text={sel.text} language={language} />}
+        {tab === 'embed' && <Embed word={term} language={language} />}
+        {tab === 'syn' && <Synonyms data={data} source={language.synonymsSource} onNavigate={onNavigate} />}
+        {tab === 'wiki' && <Wikipedia query={term} wikis={language.wikis} />}
         {tab === 'links' && (
           <ul className="links">
-            {LINKS.map((l) => (
+            {language.links.map((l) => (
               <li key={l.name}>
                 <button className="link" onClick={() => window.api.openExternal(l.url(term))}>
                   {l.name} ↗
@@ -220,19 +230,57 @@ const DECLENSION = {
 };
 const CASE_NAMES = ['Nominativ', 'Genitiv', 'Dativ', 'Akkusativ'];
 
-function Forms({ word }) {
+// English headword forms: the part of speech of the first meaning decides which line is shown.
+const EN_POS = { Verb: 'verb', Noun: 'noun', Adjective: 'adj', Adverb: 'adv' };
+const EN_LABELS = {
+  'third-person singular simple present': 'he/she/it',
+  'present participle': '-ing form',
+  'simple past': 'Past',
+  'past participle': 'Past participle',
+  'simple past and past participle': 'Past / participle',
+  plural: 'Plural',
+  comparative: 'Comparative',
+  superlative: 'Superlative',
+};
+
+function Forms({ word, lang, pos }) {
   const [inf, setInf] = useState(null);
 
   useEffect(() => {
     let alive = true;
     setInf(null);
-    window.api.inflection(word).then((d) => alive && setInf(d));
+    window.api.inflection(word, lang).then((d) => alive && setInf(d));
     return () => {
       alive = false;
     };
-  }, [word]);
+  }, [word, lang]);
 
   if (!inf?.kind) return null;
+
+  if (inf.kind === 'en') {
+    const head = inf.heads.find((h) => h.pos === EN_POS[pos]) ?? (EN_POS[pos] ? null : inf.heads[0]);
+    if (!head) return null;
+    if (!head.forms.length) return head.notes.length ? <p className="forms-line muted">{head.notes.join(' · ')}</p> : null;
+    return (
+      <table className="forms">
+        <tbody>
+          {head.forms.map(([label, form]) => (
+            <tr key={label}>
+              <th>{EN_LABELS[label] ?? label[0].toUpperCase() + label.slice(1)}</th>
+              <td>{form}</td>
+            </tr>
+          ))}
+          {head.notes.map((n) => (
+            <tr key={n}>
+              <th />
+              <td className="muted">{n}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
   const f = inf.forms;
 
   if (inf.kind === 'Verb') {
@@ -341,9 +389,9 @@ function Definitions({ data, onPick, onNavigate }) {
 // Google Translate's own page embedded in the panel (free, no API key). Browsers cannot
 // embed it, so the web app opens Google Translate instead. On phones the link is caught by the
 // Translate app, which drops the text, so there the text is handed over with the share sheet.
-function GoogleTranslate({ text }) {
+function GoogleTranslate({ text, language }) {
   const [copied, setCopied] = useState(false);
-  const url = `https://translate.google.com/?sl=de&tl=en&op=translate&text=${enc(text.slice(0, 5000))}`;
+  const url = language.google(text.slice(0, 5000));
   if (window.api.platform === 'web') {
     const phone = window.matchMedia('(hover: none)').matches && navigator.share;
     const open = async () => {
@@ -377,21 +425,38 @@ function GoogleTranslate({ text }) {
   );
 }
 
-// DWDS (Digitales Wörterbuch der deutschen Sprache): German definitions, word formation,
-// collocations and real corpus examples. Its page is shown inside the panel.
-function Dwds({ word }) {
-  const url = `https://www.dwds.de/wb/${enc(word)}`;
+// The language's own dictionary inside the panel: DWDS for German (German definitions, word
+// formation, collocations, corpus examples), Cambridge for English. Cambridge refuses to be
+// framed by websites, so the web app offers the big learner's dictionaries as buttons.
+function Embed({ word, language }) {
+  const { embed } = language;
+  const url = embed.url(word);
+  if (!embed.frame && window.api.platform === 'web') {
+    return (
+      <div className="dict-buttons">
+        {language.links.slice(0, 4).map((l) => (
+          <button key={l.name} className="btn" onClick={() => window.api.openExternal(l.url(word))}>
+            {l.name} ↗
+          </button>
+        ))}
+      </div>
+    );
+  }
   return (
     <div className="embed">
-      <iframe src={url} title="DWDS" referrerPolicy="no-referrer" />
+      {embed.frame ? (
+        <iframe src={url} title={embed.label} referrerPolicy="no-referrer" />
+      ) : (
+        <webview src={url} />
+      )}
       <button className="link small" onClick={() => window.api.openExternal(url)}>
-        Open on dwds.de ↗
+        Open on {new URL(url).hostname.replace(/^www\./, '')} ↗
       </button>
     </div>
   );
 }
 
-function PhraseTranslation({ data, record, onPatch, text }) {
+function PhraseTranslation({ data, text, language }) {
   return (
     <div>
       {!data && <Loading />}
@@ -403,12 +468,12 @@ function PhraseTranslation({ data, record, onPatch, text }) {
           </span>
         </div>
       )}
-      <GoogleTranslate text={text} />
+      <GoogleTranslate text={text} language={language} />
     </div>
   );
 }
 
-function Synonyms({ data, onNavigate }) {
+function Synonyms({ data, source, onNavigate }) {
   if (!data) return <Loading />;
   const chips = (list) => (
     <div className="chips">
@@ -437,19 +502,19 @@ function Synonyms({ data, onNavigate }) {
       )}
       {data.thesaurus?.length > 0 && (
         <>
-          <h4>Related groups</h4>
+          <h4>Related</h4>
           {data.thesaurus.map((g, i) => (
             <div key={i}>{chips(g)}</div>
           ))}
-          <p className="source muted small">Source: OpenThesaurus.de</p>
         </>
       )}
+      {!empty && <p className="source muted small">Source: {source}</p>}
     </div>
   );
 }
 
-function Wikipedia({ query }) {
-  const [lang, setLang] = useState('de');
+function Wikipedia({ query, wikis }) {
+  const [lang, setLang] = useState(wikis[0][0]);
   const [title, setTitle] = useState(query);
   const [data, setData] = useState(null);
 
@@ -466,9 +531,9 @@ function Wikipedia({ query }) {
   return (
     <div className="wiki">
       <div className="seg">
-        {['de', 'en'].map((l) => (
+        {wikis.map(([l, name]) => (
           <button key={l} className={lang === l ? 'on' : ''} onClick={() => setLang(l)}>
-            {l === 'de' ? 'Deutsch' : 'English'}
+            {name}
           </button>
         ))}
       </div>

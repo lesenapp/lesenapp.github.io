@@ -32,15 +32,22 @@ export const lookupFields = (data) => ({
 });
 
 // Dictionary lookup of a word as it appears in a text. With the particle that closes its
-// clause ("rufe … an") it becomes the separable verb ("anrufen") when that verb exists.
-export async function lookupWord(text, particle) {
-  const d = await window.api.lookup(text);
+// clause ("rufe … an") it becomes the separable verb ("anrufen") when that verb exists; in
+// English the phrasal verb ("picks … up" → "pick up"). A weak English particle ("look
+// after") only adds the phrasal verb as a suggestion (`phrasal`).
+export async function lookupWord(text, particle, lang = 'de', weak = false) {
+  const d = await window.api.lookup(text, lang);
   if (!particle || !d?.found) return d;
   const bases = [d.lemma, ...d.entries.flatMap((e) => e.defs).filter((x) => x.inflection).map((x) => x.formOf)];
   for (const base of [...new Set(bases)].filter((b) => b && /^\p{Ll}/u.test(b)).slice(0, 2)) {
-    const verb = await window.api.lookup(particle + base);
+    const phrase = lang === 'en' ? `${base} ${particle}` : particle + base;
+    const verb = await window.api.lookup(phrase, lang);
     if (verb?.found && verb.entries.some((e) => e.pos === 'Verb')) {
-      return { ...verb, lemma: verb.lemma || particle + base, separable: { particle } };
+      if (weak) return { ...d, phrasal: verb.lemma || phrase };
+      const entries = [...verb.entries.filter((e) => e.pos === 'Verb'), ...verb.entries.filter((e) => e.pos !== 'Verb')];
+      // Pronounced as written in the text ("picks"), not as the whole phrase.
+      const voice = lang === 'en' ? { ipa: d.ipa, audio: d.audio } : {};
+      return { ...verb, ...voice, entries, lemma: verb.lemma || phrase, separable: { particle } };
     }
   }
   return d;

@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { paginate, sentenceAround, sentenceRanges, tokenize, wordKey } from '../lib/text.js';
 import { upsert, remove } from '../lib/words.js';
-import { loadGenders, nounGender, separableParticle } from '../lib/grammar.js';
+import { loadGenders, nounGender, phrasalParticle, separableParticle } from '../lib/grammar.js';
 import { speakThen, unlockSpeech } from '../lib/speech.js';
 import { useBackButton } from '../lib/useBackButton.js';
+import { languageOf } from '../lib/language.js';
 import WordPanel from './WordPanel.jsx';
 
 // How long a page has to stay open to count as read for the daily total.
 const READ_AFTER_MS = 15_000;
 
-export default function Reader({ text, words, setWords, settings, onUpdateText, onBack, onRead }) {
+export default function Reader({ text, lang = 'de', words, setWords, settings, onUpdateText, onBack, onRead }) {
   const paragraphs = useMemo(() => tokenize(text.content), [text.content]);
   const pages = useMemo(() => paginate(paragraphs, settings.wordsPerPage), [paragraphs, settings.wordsPerPage]);
   const [page, setPage] = useState(() => Math.min(text.page || 0, pages.length - 1));
@@ -18,15 +19,17 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
   const [gendersReady, setGendersReady] = useState(false);
   const [speaking, setSpeaking] = useState(null); // { pi, si }: sentence being read aloud
   useBackButton(Boolean(sel), () => setSel(null));
+  // Noun genders only exist in German.
+  const colorGenders = lang === 'de' && settings.genderColors;
 
   useEffect(() => {
-    if (!settings.genderColors) return;
+    if (!colorGenders) return;
     let alive = true;
     loadGenders().then(() => alive && setGendersReady(true));
     return () => {
       alive = false;
     };
-  }, [settings.genderColors]);
+  }, [colorGenders]);
 
   useEffect(() => {
     onUpdateText({ page, opened: Date.now() });
@@ -43,7 +46,7 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
   // Noun gender per word on this page ("pi:ti" → m/f/n); a saved word's own gender comes first.
   const pageGenders = useMemo(() => {
     const out = {};
-    if (!settings.genderColors || !gendersReady) return out;
+    if (!colorGenders || !gendersReady) return out;
     for (const pi of pages[page] || []) {
       let start = true;
       paragraphs[pi].tokens.forEach((tok, ti) => {
@@ -57,9 +60,10 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
       });
     }
     return out;
-  }, [settings.genderColors, gendersReady, pages, page, paragraphs]);
+  }, [colorGenders, gendersReady, pages, page, paragraphs]);
 
   const genderOf = (pi, ti, tok) => {
+    if (!colorGenders) return null;
     const w = words[tok.key];
     if (w?.gender && 'mfn'.includes(w.gender) && /^\p{Lu}/u.test(tok.text) && /^\p{Lu}/u.test(w.lemma || '')) {
       return w.gender;
@@ -86,7 +90,7 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
       }
       setSpeaking(null);
     };
-    const stop = speakThen(paragraphs[pi].text.slice(r.start, r.end), settings.speechRate, next);
+    const stop = speakThen(paragraphs[pi].text.slice(r.start, r.end), settings.speechRate, languageOf(lang).speech(settings), next);
     pageRef.current?.querySelector('.speaking')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     return stop;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,12 +133,14 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
   const selectToken = (pi, ti) => {
     const p = paragraphs[pi];
     const tok = p.tokens[ti];
+    const verb = lang === 'en' ? phrasalParticle(p.tokens, ti) : { particle: separableParticle(p.tokens, ti) };
     setSel({
       kind: 'word',
       text: tok.text,
       key: tok.key,
       context: sentenceAround(p.text, tok.start, tok.start + tok.text.length),
-      particle: separableParticle(p.tokens, ti),
+      particle: verb?.particle ?? null,
+      weak: Boolean(verb?.weak),
       pos: `${pi}:${ti}`,
     });
   };
@@ -271,6 +277,7 @@ export default function Reader({ text, words, setWords, settings, onUpdateText, 
         <WordPanel
           key={sel.key + sel.kind + (sel.particle ?? '')}
           sel={sel}
+          lang={lang}
           record={record}
           settings={settings}
           onPatch={patchSelected}

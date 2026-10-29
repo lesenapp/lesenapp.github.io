@@ -28,6 +28,57 @@ export function separableParticle(tokens, ti) {
   return last && PARTICLES.has(last.key) && last.text === last.key ? last.key : null;
 }
 
+// ---------- English phrasal verbs ----------
+
+// Adverb particles: right after the verb or after a short object ("pick it up",
+// "put your coat on" is handled by the strong list only when it is clause-final).
+const EN_STRONG = new Set('up down out off away back over around round apart aside together forward'.split(' '));
+// Particles that are just as often ordinary prepositions ("look after" vs "after lunch"):
+// only right after the verb, and only offered as a suggestion.
+const EN_WEAK = new Set('on in at by for to after into across about through along onto upon with without'.split(' '));
+const EN_CLAUSE_START = new Set(
+  'and or but so because that which who whom whose when where while if although though unless until before after since'.split(' ')
+);
+const EN_NOT_VERBS = new Set(
+  'i you he she it we they me him her us them my your his its our their the a an this that these those to of and or but'.split(' ')
+);
+
+// For the word at `ti`: { particle, weak } when a particle that may form a phrasal verb
+// follows it in the same clause. "She picks up her umbrella" / "picks it up" → up;
+// "puts her coat on." → on (clause-final); "looks after him" → after (weak).
+export function phrasalParticle(tokens, ti) {
+  const word = tokens[ti];
+  if (EN_STRONG.has(word.key) || EN_WEAK.has(word.key) || EN_NOT_VERBS.has(word.key)) return null;
+  const following = [];
+  let clauseEnd = false;
+  for (let i = ti + 1; i < tokens.length && following.length < 4; i++) {
+    const t = tokens[i];
+    if (t.type === 'gap') {
+      if (/[.,;:!?…()"“”«»–—]/.test(t.text)) {
+        clauseEnd = true;
+        break;
+      }
+      continue;
+    }
+    if (EN_CLAUSE_START.has(t.key) && following.length) {
+      clauseEnd = true;
+      break;
+    }
+    following.push(t);
+  }
+  if (!following.length) return null;
+  const [next] = following;
+  if (EN_STRONG.has(next.key)) return { particle: next.key, weak: false };
+  if (EN_WEAK.has(next.key)) return { particle: next.key, weak: true };
+  // Split: "pick it up", "turn the radio off", "put her coat on." (on only clause-final).
+  const within = following.slice(1, 3);
+  const strong = within.find((t) => EN_STRONG.has(t.key));
+  if (strong) return { particle: strong.key, weak: false };
+  const last = following[following.length - 1];
+  if (clauseEnd && following.length <= 3 && EN_WEAK.has(last.key)) return { particle: last.key, weak: false };
+  return null;
+}
+
 // ---------- Prepositions ----------
 
 const CASES = {

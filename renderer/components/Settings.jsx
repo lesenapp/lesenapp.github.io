@@ -1,22 +1,29 @@
 import { useEffect, useState } from 'react';
-import { germanVoice, speak } from '../lib/speech.js';
+import { speak, voiceFor } from '../lib/speech.js';
+import { languageOf } from '../lib/language.js';
 
-export default function Settings({ settings, setSettings, profile }) {
+export default function Settings({ lang = 'de', settings, setSettings, profile }) {
   const set = (patch) => setSettings((s) => ({ ...s, ...patch }));
-  const [voice, setVoice] = useState(() => germanVoice());
+  const language = languageOf(lang);
+  const english = lang === 'en';
+  const tag = language.speech(settings);
+  const [voice, setVoice] = useState(() => voiceFor(tag));
 
   useEffect(() => {
-    const update = () => setVoice(germanVoice());
+    const update = () => setVoice(voiceFor(tag));
+    update();
     window.speechSynthesis.addEventListener('voiceschanged', update);
     return () => window.speechSynthesis.removeEventListener('voiceschanged', update);
-  }, []);
+  }, [tag]);
 
   return (
     <div className="page-wrap narrow">
       <header className="view-head">
         <div>
           <h1>Settings</h1>
-          <p className="muted">For {profile.name}</p>
+          <p className="muted">
+            For {profile.name} · {language.name}
+          </p>
         </div>
       </header>
 
@@ -65,6 +72,7 @@ export default function Settings({ settings, setSettings, profile }) {
           <input type="checkbox" checked={settings.autoSave} onChange={(e) => set({ autoSave: e.target.checked })} />
         </div>
 
+        {!english && (
         <div className="setting">
           <div>
             <b>Colour nouns by gender</b>
@@ -78,13 +86,31 @@ export default function Settings({ settings, setSettings, profile }) {
             onChange={(e) => set({ genderColors: e.target.checked })}
           />
         </div>
+        )}
+
+        {english && (
+          <div className="setting">
+            <div>
+              <b>Accent</b>
+            </div>
+            <div className="seg">
+              {[
+                ['uk', 'British'],
+                ['us', 'American'],
+              ].map(([id, label]) => (
+                <button key={id} className={settings.accent === id ? 'on' : ''} onClick={() => set({ accent: id })}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="setting column">
           <div>
             <b>Anki deck</b>
             <p className="muted small">
-              “Send to Anki” adds your saved words to this deck as two-way cards (German → English and English →
-              German); sending again only adds new words and updates changed ones. Turn on FSRS once in Anki: Deck
+              “Send to Anki” adds your saved words to this deck as two-way cards ({english ? 'English → meaning and meaning → English' : 'German → English and English → German'}); sending again only adds new words and updates changed ones. Turn on FSRS once in Anki: Deck
               options → FSRS.{' '}
               {window.api.platform === 'web'
                 ? 'On a computer, keep Anki open with the AnkiConnect add-on for one-click import; on phones the deck file opens in the Anki app.'
@@ -94,7 +120,7 @@ export default function Settings({ settings, setSettings, profile }) {
           <input
             className="input"
             value={settings.ankiDeck}
-            placeholder="Lesen"
+            placeholder={language.ankiDeck}
             onChange={(e) => set({ ankiDeck: e.target.value.replace(/["]/g, '') })}
           />
         </div>
@@ -102,16 +128,17 @@ export default function Settings({ settings, setSettings, profile }) {
 
         <div className="setting">
           <div>
-            <b>German voice</b>
+            <b>{english ? 'English voice' : 'German voice'}</b>
             <p className="muted small">
               {voice
                 ? voice.name
                 : window.api.platform === 'web'
-                  ? 'No German voice found on this device. On phones it is usually available after tapping Test once; otherwise add a German voice in the system speech settings.'
-                  : 'No German voice installed. Add one in Windows Settings → Time & language → Speech → Add voices → Deutsch.'}
+                  ? `No ${english ? 'English' : 'German'} voice found on this device. On phones it is usually available after tapping Test once; otherwise add one in the system speech settings.`
+                  : `No ${english ? 'English' : 'German'} voice installed. Add one in Windows Settings → Time & language → Speech → Add voices → ${english ? 'English' : 'Deutsch'}.`}
             </p>
           </div>
-          <button className="btn" onClick={() => speak('Guten Morgen! Wie geht es dir?', settings.speechRate)}>
+          <button className="btn" onClick={() => speak(english ? 'Good morning! How are you today?' : 'Guten Morgen! Wie geht es dir?', settings.speechRate, tag)}
+          >
             Test
           </button>
         </div>

@@ -1,8 +1,14 @@
 import { useState } from 'react';
+import { LANGUAGES } from '../lib/language.js';
 
 const COLORS = ['#c2410c', '#0f766e', '#7c3aed', '#be185d', '#1d4ed8', '#4d7c0f'];
 
-export default function ProfilePicker({ profiles, onPick, onChange }) {
+const TAGLINE = {
+  de: "Learn German by reading. Who's reading today?",
+  en: "Learn English by reading. Who's reading today?",
+};
+
+export default function ProfilePicker({ profiles, lang, onLang, onPick, onChange }) {
   const [name, setName] = useState('');
 
   const add = (e) => {
@@ -20,7 +26,14 @@ export default function ProfilePicker({ profiles, onPick, onChange }) {
         <div className="brand big">
           Lesen<span>.</span>
         </div>
-        <p className="muted">Learn German by reading. Who's reading today?</p>
+        <div className="seg lang-seg">
+          {Object.values(LANGUAGES).map((l) => (
+            <button key={l.code} className={lang === l.code ? 'on' : ''} onClick={() => onLang(l.code)}>
+              {l.name}
+            </button>
+          ))}
+        </div>
+        <p className="muted">{TAGLINE[lang]}</p>
         <div className="profiles">
           {profiles.map((p) => (
             <button key={p.id} className="profile-tile" onClick={() => onPick(p)}>

@@ -6,9 +6,9 @@ const needsLookup = (w) => !w.isPhrase && w.looked !== LOOKUP_VERSION;
 const needsContext = (w) => Boolean(w.context) && !w.contextTranslation;
 
 // Quietly completes saved words in the background, one word at a time: a missing meaning,
-// the dictionary form (base form, gender, plural) and the English translation of the
-// sentence the word came from — everything the Anki card shows.
-export function useMeaningFiller(words, setWords) {
+// the dictionary form (base form, gender, plural) and the translation of the sentence the word
+// came from (English for German, Turkish for English) — everything the Anki card shows.
+export function useMeaningFiller(words, setWords, lang = 'de') {
   const busy = useRef(false);
   const tried = useRef(new Set());
   const [tick, setTick] = useState(0);
@@ -26,15 +26,15 @@ export function useMeaningFiller(words, setWords) {
       const patch = {};
       try {
         if (todo.isPhrase && needsMeaning(todo)) {
-          const t = await window.api.translate(todo.word);
+          const t = await window.api.translate(todo.word, lang);
           if (t?.text) patch.translation = t.text;
         }
         if (needsLookup(todo)) {
-          const d = await lookupWord(todo.word, todo.particle);
+          const d = await lookupWord(todo.word, todo.particle, lang);
           if (d?.found) Object.assign(patch, lookupFields(d), { translation: firstGloss(d) });
         }
         if (needsContext(todo)) {
-          const t = await window.api.translate(todo.context);
+          const t = await window.api.translate(todo.context, lang);
           if (t?.text) patch.contextTranslation = t.text;
         }
       } finally {
@@ -50,5 +50,5 @@ export function useMeaningFiller(words, setWords) {
         setTick((n) => n + 1);
       }
     })();
-  }, [words, setWords, tick]);
+  }, [words, setWords, tick, lang]);
 }

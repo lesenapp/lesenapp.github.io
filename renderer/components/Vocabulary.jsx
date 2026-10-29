@@ -12,8 +12,9 @@ import {
   requestAnkiPermission,
   sentStamp,
 } from '../lib/anki.js';
+import { languageOf } from '../lib/language.js';
 
-export default function Vocabulary({ words, setWords, texts, settings, onOpen }) {
+export default function Vocabulary({ lang = 'de', words, setWords, texts, settings, onOpen }) {
   const [onlyFavourites, setOnlyFavourites] = useState(false);
   const [query, setQuery] = useState('');
   const [sel, setSel] = useState(null); // word shown in the side panel, as in the reader
@@ -67,7 +68,7 @@ export default function Vocabulary({ words, setWords, texts, settings, onOpen })
             <input className="input search" placeholder="Search words or meanings" value={query} onChange={(e) => setQuery(e.target.value)} />
           </header>
     
-          <AnkiBar words={words} setWords={setWords} deck={settings.ankiDeck || 'Lesen'} />
+          <AnkiBar lang={lang} words={words} setWords={setWords} deck={settings.ankiDeck || languageOf(lang).ankiDeck} />
     
           {favourites > 0 && (
             <div className="seg wide">
@@ -107,6 +108,7 @@ export default function Vocabulary({ words, setWords, texts, settings, onOpen })
         <WordPanel
           key={sel.key + sel.kind}
           sel={sel}
+          lang={lang}
           record={words[sel.key]}
           settings={settings}
           onPatch={patchSelected}
@@ -176,7 +178,7 @@ function WordRow({ w, selected, source, onSelect, onPatch, onOpen, onRemove }) {
 const isPhone = () => window.matchMedia('(pointer: coarse)').matches;
 
 // One button that sends every new or changed saved word to the same Anki deck.
-function AnkiBar({ words, setWords, deck }) {
+function AnkiBar({ lang, words, setWords, deck }) {
   const pending = useMemo(() => pendingForAnki(words), [words]);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
@@ -189,7 +191,7 @@ function AnkiBar({ words, setWords, deck }) {
     if (!sharesFile || !pending.length) return;
     let alive = true;
     const t = setTimeout(() => {
-      buildApkg(pending, deck).then((bytes) => {
+      buildApkg(pending, deck, lang).then((bytes) => {
         if (alive) prebuilt.current = { bytes, list: pending };
       });
     }, 400);
@@ -231,7 +233,7 @@ function AnkiBar({ words, setWords, deck }) {
       }
       if (status === 'forbidden') throw new Error('Anki did not allow access. Press Send again and choose “Yes” in Anki.');
 
-      const bytes = await buildApkg(list, deck);
+      const bytes = await buildApkg(list, deck, lang);
       if (status === 'ready') {
         const synced = await importViaAnkiConnect(bytes);
         stamp(list);

@@ -34,10 +34,10 @@ ipcMain.handle('profiles:list', () => store.listProfiles());
 ipcMain.handle('profiles:save', (_e, list) => store.saveProfiles(list));
 ipcMain.handle('data:load', (_e, profileId, name) => store.load(profileId, name));
 ipcMain.handle('data:save', (_e, profileId, name, value) => store.save(profileId, name, value));
-ipcMain.handle('dict:lookup', (_e, word) => dictionary.lookup(word));
+ipcMain.handle('dict:lookup', (_e, word, lang) => dictionary.lookup(word, lang));
 ipcMain.handle('dict:wikipedia', (_e, query, lang) => dictionary.wikipedia(query, lang));
-ipcMain.handle('dict:translate', (_e, text) => dictionary.translate(text));
-ipcMain.handle('dict:inflection', (_e, word) => dictionary.inflection(word));
+ipcMain.handle('dict:translate', (_e, text, lang) => dictionary.translate(text, lang));
+ipcMain.handle('dict:inflection', (_e, word, lang) => dictionary.inflection(word, lang));
 // Anki: AnkiConnect add-on on localhost, or open an .apkg with the installed Anki.
 ipcMain.handle('anki:connect', async (_e, body) => {
   try {
@@ -65,7 +65,8 @@ app.on('web-contents-created', (_e, contents) => {
     webPreferences.nodeIntegration = false;
     webPreferences.contextIsolation = true;
     webPreferences.sandbox = true;
-    if (!params.src.startsWith('https://translate.google.com/')) event.preventDefault();
+    const allowed = ['https://translate.google.com/', 'https://dictionary.cambridge.org/'];
+    if (!allowed.some((origin) => params.src.startsWith(origin))) event.preventDefault();
   });
   contents.setWindowOpenHandler(({ url }) => {
     if (/^https:\/\//.test(url)) shell.openExternal(url);

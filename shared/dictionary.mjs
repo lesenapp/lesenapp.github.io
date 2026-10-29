@@ -1,9 +1,14 @@
 // Online lookups shared by the desktop app (Electron main process) and the web app.
+// German profiles:
 //  - English Wiktionary: German entries with English definitions, gender, IPA, synonyms
 //  - OpenThesaurus: German synonym groups
 //  - Wikipedia (de/en): article summaries
 //  - MyMemory: phrase and sentence translation
 //  - German Wiktionary: conjugation and declension tables
+// English profiles (lang = 'en'):
+//  - English Wiktionary: English definitions, base forms, word forms, IPA, synonyms
+//  - Free Dictionary API: UK/US pronunciation audio; Datamuse: synonyms and related words
+//  - Wikipedia (en/simple), MyMemory English → Turkish
 // All of these services allow browser (CORS) requests.
 //
 // createDictionary({ fetch, cache }) — `fetch` is a fetch-compatible function and
@@ -32,9 +37,9 @@ const unique = (list) => [...new Set(list)];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Every positional argument of templates such as {{syn|de|a|b}}.
-function templateArgs(src, names, firstOnly = false) {
+function templateArgs(src, names, firstOnly = false, code = 'de') {
   const out = [];
-  const re = new RegExp(`\\{\\{(?:${names})\\|de\\|([^{}]*)\\}\\}`, 'g');
+  const re = new RegExp(`\\{\\{(?:${names})\\|${code}\\|([^{}]*)\\}\\}`, 'g');
   for (const m of src.matchAll(re)) {
     const args = m[1].split('|').filter((a) => !a.includes('='));
     for (const a of firstOnly ? args.slice(0, 1) : args) {
@@ -114,9 +119,10 @@ export function createDictionary({ fetch, cache }) {
 
   // ---------- Wiktionary ----------
 
-  async function wiktionaryEntries(title) {
+  async function wiktionaryEntries(title, code = 'de') {
     const data = await getJson(`https://en.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(title)}`);
-    const sections = data?.de;
+    // The "en" list also holds Translingual entries (symbols, codes); only English ones count.
+    const sections = code === 'en' ? data?.en?.filter((s) => s.language === 'English') : data?.de;
     if (!sections?.length) return null;
     const lemmas = new Set();
     const entries = sections
@@ -193,9 +199,10 @@ export function createDictionary({ fetch, cache }) {
     }
   }
 
-  async function lookup(word) {
+  async function lookup(word, lang = 'de') {
     const query = String(word || '').trim();
     if (!query) return { query, found: false, entries: [] };
+    if (lang === 'en') return lookupEnglish(query.replace(/’/g, "'"));
     const key = `lk4:${query}`; // bumped whenever the result shape changes
     const cached = await cache.get(key);
     if (cached) return cached;
@@ -254,7 +261,7 @@ export function createDictionary({ fetch, cache }) {
   // ---------- Wikipedia ----------
 
   async function wikipedia(query, lang = 'de') {
-    if (!['de', 'en'].includes(lang)) lang = 'de';
+    if (!['de', 'en', 'simple'].includes(lang)) lang = 'de';
     const key = `wp:${lang}:${query}`;
     const cached = await cache.get(key);
     if (cached) return cached;
@@ -285,9 +292,10 @@ export function createDictionary({ fetch, cache }) {
 
   // The "Übersicht" table of a German Wiktionary entry: conjugation for verbs, the four cases
   // for nouns, comparison for adjectives. { kind: 'Verb' | 'Substantiv' | 'Adjektiv', forms }.
-  async function inflection(word) {
+  async function inflection(word, lang = 'de') {
     const title = String(word || '').trim();
     if (!title) return { kind: null };
+    if (lang === 'en') return inflectionEnglish(title);
     const key = `inf1:${title}`;
     const cached = await cache.get(key);
     if (cached) return cached;
@@ -313,18 +321,208 @@ export function createDictionary({ fetch, cache }) {
 
   // ---------- Phrase translation ----------
 
-  // MyMemory: free, no key.
-  async function translate(text) {
+  // MyMemory: free, no key. German → English; English → Turkish.
+  async function translate(text, lang = 'de') {
     const q = String(text || '').trim().slice(0, 500);
     if (!q) return { text: '' };
     try {
-      const key = `tr:${q}`;
+      const key = lang === 'en' ? `tren:${q}` : `tr:${q}`;
       const cached = await cache.get(key);
       if (cached) return cached;
-      const data = await getJson(`https://api.mymemory.translated.net/get?langpair=de%7Cen&q=${encodeURIComponent(q)}`);
+      const pair = lang === 'en' ? 'en%7Ctr' : 'de%7Cen';
+      const data = await getJson(`https://api.mymemory.translated.net/get?langpair=${pair}&q=${encodeURIComponent(q)}`);
       return remember(key, { text: decode(data?.responseData?.translatedText || ''), provider: 'MyMemory' });
     } catch (e) {
       return { error: e.message };
+    }
+  }
+
+  // ======================================================================================
+  // English profiles: English Wiktionary for definitions, base forms and word forms; the
+  // Free Dictionary API for UK/US pronunciation audio; Datamuse for synonyms.
+  // ======================================================================================
+
+  // "well#Adjective" → "well"
+  const cleanLink = (w) => w.replace(/#.*$/, '').trim();
+
+  // English section of a page's wikitext.
+  function englishSection(text) {
+    const start = text.search(/^==English==\s*$/m);
+    if (start < 0) return '';
+    const rest = text.slice(start).replace(/^==English==\s*$/m, '');
+    const end = rest.search(/^==[^=].*==\s*$/m);
+    return end < 0 ? rest : rest.slice(0, end);
+  }
+
+  // Page wikitext, fetched once per page for both the details and the word forms.
+  const wikitextMemo = new Map();
+  async function wikitext(title) {
+    if (!wikitextMemo.has(title)) {
+      const url = `https://en.wiktionary.org/w/api.php?action=parse&format=json&formatversion=2&prop=wikitext&redirects=1&origin=*&page=${encodeURIComponent(title)}`;
+      wikitextMemo.set(
+        title,
+        getJson(url).then((d) => d?.parse?.wikitext ?? '')
+      );
+    }
+    try {
+      return await wikitextMemo.get(title);
+    } catch (e) {
+      wikitextMemo.delete(title);
+      throw e;
+    }
+  }
+
+  async function englishDetails(title) {
+    const en = englishSection(await wikitext(title));
+    if (!en) return {};
+    return {
+      ipa: en.match(/\{\{IPA\|en\|([^}|]+)/)?.[1] ?? null,
+      synonyms: [
+        ...templateArgs(en, 'syn|synonyms', false, 'en'),
+        ...templateArgs(sectionBodies(en, 'Synonyms'), 'l|link', true, 'en'),
+      ],
+      antonyms: [
+        ...templateArgs(en, 'ant|antonyms', false, 'en'),
+        ...templateArgs(sectionBodies(en, 'Antonyms'), 'l|link', true, 'en'),
+      ],
+    };
+  }
+
+  // UK and US pronunciation (IPA and a recording) from the Free Dictionary API.
+  async function pronunciation(word) {
+    try {
+      const data = await getJson(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+      const phonetics = (Array.isArray(data) ? data : []).flatMap((e) => e.phonetics || []);
+      const pick = (re) => {
+        const p = phonetics.find((x) => re.test(x.audio || ''));
+        return p ? { ipa: p.text || null, audio: p.audio } : null;
+      };
+      return { uk: pick(/-uk\.mp3$/), us: pick(/-us\.mp3$/), ipa: phonetics.find((x) => x.text)?.text ?? null };
+    } catch {
+      return { uk: null, us: null, ipa: null };
+    }
+  }
+
+  // Synonyms, antonyms and words of similar meaning from Datamuse (WordNet based).
+  async function datamuse(word) {
+    const get = async (rel) => {
+      try {
+        const list = await getJson(`https://api.datamuse.com/words?${rel}=${encodeURIComponent(word)}&max=24`);
+        return (list || []).map((w) => w.word).filter((w) => w.toLowerCase() !== word.toLowerCase());
+      } catch {
+        return [];
+      }
+    };
+    const [synonyms, antonyms, similar] = await Promise.all([get('rel_syn'), get('rel_ant'), get('ml')]);
+    return { synonyms, antonyms, similar: similar.filter((w) => !synonyms.includes(w)).slice(0, 20) };
+  }
+
+  async function lookupEnglish(query) {
+    const key = `lken1:${query}`;
+    const cached = await cache.get(key);
+    if (cached) return cached;
+    try {
+      // Exact spelling, lower case (sentence-initial words), then without a possessive 's.
+      const lower = query.toLowerCase();
+      const bare = query.replace(/'s$/i, '').replace(/s'$/i, 's');
+      const found = [];
+      for (const variant of unique([query, lower, bare, bare.toLowerCase()]).filter(Boolean)) {
+        const entry = await wiktionaryEntries(variant, 'en');
+        if (entry) {
+          found.push(entry);
+          break;
+        }
+      }
+
+      const titles = found.map((f) => f.title);
+      const lemmaTitles = unique(found.flatMap((f) => f.lemmas)).filter((t) => !titles.includes(t)).slice(0, 2);
+      const lemmaFound = (await Promise.all(lemmaTitles.map((t) => wiktionaryEntries(t, 'en')))).filter(Boolean);
+
+      // English words often have a rare meaning of their own besides being a form of another
+      // word ("ran": simple past of run, and a kind of yarn). The first sense decides: when it
+      // is a form of another word, that word is the base form, and its meanings come right
+      // after the "simple past of run" line, before the rare ones.
+      const own = found.flatMap((f) => f.entries);
+      const firstIsForm = Boolean(own[0]?.defs[0]?.inflection);
+      const lemma = (firstIsForm ? own[0].defs[0].formOf ?? lemmaFound[0]?.title : titles[0]) ?? titles[0] ?? null;
+      const forms = own.filter((e) => e.defs.every((d) => d.inflection));
+      const lemmaEntries = lemmaFound
+        .sort((a, b) => (b.title === lemma) - (a.title === lemma))
+        .flatMap((f) => f.entries.map((e) => ({ ...e, lemmaOf: query })));
+      const entries = firstIsForm
+        ? [...forms, ...lemmaEntries, ...own.filter((e) => !forms.includes(e))]
+        : [...own, ...lemmaEntries];
+
+      const detailTitles = unique([...titles, ...lemmaFound.map((f) => f.title)]).slice(0, 2);
+      const [details, related, voice] = await Promise.all([
+        Promise.all(detailTitles.map((t) => englishDetails(t))),
+        datamuse(lemma || query),
+        // Pronounced as written in the text ("ran", not "run").
+        pronunciation(titles[0] || query),
+      ]);
+
+      return remember(key, {
+        query,
+        found: entries.length > 0,
+        lemma,
+        entries,
+        gender: null,
+        plural: null,
+        ipa: voice.uk?.ipa || voice.us?.ipa || voice.ipa || details.find((d) => d.ipa)?.ipa || null,
+        audio: { uk: voice.uk, us: voice.us },
+        // Datamuse (WordNet) first: its synonyms are the everyday ones.
+        synonyms: unique([...related.synonyms, ...details.flatMap((d) => d.synonyms || [])].map(cleanLink)).slice(0, 30),
+        antonyms: unique([...related.antonyms, ...details.flatMap((d) => d.antonyms || [])].map(cleanLink)).slice(0, 20),
+        thesaurus: related.similar.length ? [related.similar] : [],
+      });
+    } catch (e) {
+      return { query, found: false, entries: [], error: e.message };
+    }
+  }
+
+  // Word forms from the headword lines of the English entry (runs, running, ran, run;
+  // children; better, best), rendered by Wiktionary itself so irregular forms are exact.
+  // { kind: 'en', heads: [{ pos: 'verb' | 'noun' | 'adj' | 'adv', forms: [[label, form]], notes }] }
+  async function inflectionEnglish(title) {
+    const key = `infen1:${title}`;
+    const cached = await cache.get(key);
+    if (cached) return cached;
+    try {
+      const en = englishSection(await wikitext(title));
+      const templates = [];
+      for (const m of en.matchAll(/\{\{en-(verb|noun|adj|adv)(\|[^{}]*)?\}\}/g)) {
+        if (!templates.some((t) => t.pos === m[1])) templates.push({ pos: m[1], text: m[0] });
+      }
+      if (!templates.length) return remember(key, { kind: null });
+      const source = templates.map((t) => t.text).join('\n@@@\n');
+      const data = await getJson(
+        `https://en.wiktionary.org/w/api.php?action=expandtemplates&format=json&formatversion=2&prop=wikitext&origin=*&title=${encodeURIComponent(title)}&text=${encodeURIComponent(source)}`
+      );
+      const parts = (data?.expandtemplates?.wikitext ?? '').split('@@@');
+      const formRe = /<i>(?:\[\[[^\]|]*\|)?([^<\]]+?)(?:\]\])?<\/i>\s*<b[^>]*>(?:\[\[:?[^\]|]*\|)?([^\]<]+)(?:\]\])?<\/b>/g;
+      const heads = templates
+        .map((t, i) => {
+          const html = (parts[i] ?? '').replace(/\[\[Category:[^\]]*\]\]/g, '');
+          const forms = [];
+          for (const m of html.matchAll(formRe)) {
+            const label = stripHtml(m[1]);
+            // "more [[:quickly#English|quickly" → "more quickly"
+            const form = stripHtml(m[2]).replace(/\[\[:?(?:[^\]|]*\|)?/g, '').replace(/\]\]/g, '');
+            // "or" introduces another accepted form of the previous one.
+            if (label === 'or') {
+              if (forms.length) forms[forms.length - 1][1] += ` / ${form}`;
+            } else forms.push([label, form]);
+          }
+          const text = stripHtml(html.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1'));
+          const note = ['countable and uncountable', 'uncountable', 'not comparable', 'plural only'].find((n) =>
+            text.includes(n)
+          );
+          return { pos: t.pos, forms, notes: note ? [note] : [] };
+        })
+        .filter((h) => h.forms.length || h.notes.length);
+      return remember(key, heads.length ? { kind: 'en', heads } : { kind: null });
+    } catch (e) {
+      return { kind: null, error: e.message };
     }
   }
 

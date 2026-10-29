@@ -71,10 +71,10 @@ export function installWebApi() {
       return pending.has(key) ? pending.get(key) : (await get(key)) ?? null;
     },
     save: async (profileId, name, value) => queue(`profile:${profileId}:${name}`, value),
-    lookup: (word) => dictionary.lookup(word),
+    lookup: (word, lang) => dictionary.lookup(word, lang),
     wikipedia: (query, lang) => dictionary.wikipedia(query, lang),
-    translate: (text) => dictionary.translate(text),
-    inflection: (word) => dictionary.inflection(word),
+    translate: (text, lang) => dictionary.translate(text, lang),
+    inflection: (word, lang) => dictionary.inflection(word, lang),
     // AnkiConnect (Anki desktop add-on) listens on this computer only; phones never reach it.
     // It answers 403 until this site is allowed (see requestAnkiPermission in lib/anki.js).
     ankiConnect: async (body) => {
